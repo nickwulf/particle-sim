@@ -10,90 +10,181 @@
 </head>
 <body>
 
-<canvas id="myCanvas" width="480" height="320"></canvas>
+<canvas id="myCanvas" width="960" height="640"></canvas>
 
 <script>
+
+function Atom (pos, vel, radius, color) {
+  this.pos = {x:pos.x, y:pos.y};
+  this.vel = {x:vel.x, y:vel.y};
+  this.radius = radius;
+  this.mass = radius*radius;
+  this.bonds = [];
+  this.pals = [];
+  this.color = color;
+
+  this.draw = function() {
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI*2);
+    ctx.fill();
+    //ctx.stroke();
+  };
+
+  this.collision = function(other) {
+    var posDelta = {x:this.pos.x-other.pos.x, y:this.pos.y-other.pos.y}
+    var dist = Math.sqrt((posDelta.x*posDelta.x) + (posDelta.y*posDelta.y));
+    if (dist <= this.radius + other.radius) return true;
+    return false;
+  };
+};
+
+function Bond (atom1, atom2) {
+  this.atom1 = atom1;
+  this.atom2 = atom2;
+  atom1.bonds.push(this);
+  atom1.pals.push(atom2);
+  atom2.bonds.push(this);
+  atom2.pals.push(atom1);
+  this.broken = false;
+
+  this.draw = function() {
+    ctx.beginPath();
+    ctx.moveTo(this.atom1.pos.x, this.atom1.pos.y);
+    ctx.lineTo(this.atom2.pos.x, this.atom2.pos.y);
+    ctx.stroke();
+  };
+
+  this.forceAtoms = function() {
+    var posDiff = {x:this.atom1.pos.x-this.atom2.pos.x, y:this.atom1.pos.y-this.atom2.pos.y};
+    var dist = Math.sqrt(posDiff.x*posDiff.x + posDiff.y*posDiff.y);
+    var displacement = dist - this.atom1.radius - this.atom2.radius;
+    if (displacement > 8) {
+      this.break();
+      return
+    }
+    var displaceSign = 1;
+    if (displacement < 0) displaceSign *= -1;
+    displacement = displacement * Math.abs(displacement);
+    var tangent = {x:posDiff.x/dist, y:posDiff.y/dist};
+    var k = 5;
+    this.atom1.vel.x -= k / this.atom1.mass * displacement * tangent.x;
+    this.atom1.vel.y -= k / this.atom1.mass * displacement * tangent.y;
+    this.atom2.vel.x += k / this.atom2.mass * displacement * tangent.x;
+    this.atom2.vel.y += k / this.atom2.mass * displacement * tangent.y;
+  };
+
+  this.break = function() {
+    var index = this.atom1.bonds.indexOf(this);
+    this.atom1.bonds.splice(index,1);
+    this.atom1.pals.splice(index,1);
+    delete this.atom1;
+    index = this.atom2.bonds.indexOf(this);
+    this.atom2.bonds.splice(index,1);
+    this.atom2.pals.splice(index,1);
+    delete this.atom2;
+    this.broken = true;
+  }
+};
+
 var canvas = document.getElementById("myCanvas");
 var ctx = canvas.getContext("2d");
-var ballRadius = 10;
 var x = canvas.width/2.0;
 var y = canvas.height-30.0;
 var balls = [];
+var atoms = [];
 var envMomentum = [0,0];
-var ballCount = 2;
-var alpha = 0;
-for (var i=0; i<ballCount; i++) {
-  balls.push({"x":20+i*50, "y":y, "dx":1, "dy":i});
+var atomCount = 50;
+for (var i=0; i<atomCount; i++) {
+  atoms.push(new Atom({x:20+i*16, y:y-350}, {x:1, y:-i*.1}, 8.0, "#FF95DD"));
+  atoms.push(new Atom({x:20+i*14, y:y-300}, {x:1, y:-i*.1}, 7.0, "#0095DD"));
+  atoms.push(new Atom({x:20+i*12, y:y-250}, {x:1, y:-i*.1}, 6.0, "#0095DD"));
+  atoms.push(new Atom({x:20+i*10, y:y-200}, {x:1, y:-i*.1}, 5.0, "#0095DD"));
+  atoms.push(new Atom({x:20+i*16, y:y-150}, {x:1, y:-i*.1}, 4.0, "#0095DD"));
+  atoms.push(new Atom({x:20+i*16, y:y-100}, {x:1, y:-i*.1}, 3.0, "#0095DD"));
+  atoms.push(new Atom({x:20+i*16, y:y-50}, {x:1, y:-i*.1}, 2.0, "#0095DD"));
+  atoms.push(new Atom({x:20+i*16, y:y}, {x:1, y:-i*.1}, 1.0, "#0095DD"));
 }
-balls[0].x = 150;
-balls[0].y = 150;
-balls[0].dx = 0;
-balls[0].dy = 0;
-//balls[1].x = 400;
-//balls[1].y = 160;
-//balls[1].dx = 0;
-//balls[1].dy = 0;
+var bonds = [];
+for (var i=0; i<392; i+=8) {
+  bonds.push(new Bond(atoms[i],atoms[i+8]));
+ // bonds.push(new Bond(atoms[i+1],atoms[i+9]));
+ // bonds.push(new Bond(atoms[i+2],atoms[i+10]));
+ // bonds.push(new Bond(atoms[i+3],atoms[i+11]));
+}
+//bonds.push(new Bond(atoms[0],atoms[8]));
 
-function drawBall() {
-  for (var i=0; i<balls.length; i++) {
-    ctx.beginPath();
-    ctx.arc(balls[i].x, balls[i].y, ballRadius, 0, Math.PI*2);
-    ctx.fillStyle = "#0095DD";
-    ctx.fill();
-    ctx.closePath();
-  }
-}
+
+
 
 function draw() {
   var energy = 0;
-  for (var i=0; i<balls.length; i++) {
-    for (var j=0; j<balls.length; j++) {
-      if (i == j) continue;
-      var distX = 0.0+balls[i].x - balls[j].x;
-      var distY = 0.0+balls[i].y - balls[j].y;
-      var dist = Math.sqrt(distX*distX + distY*distY);
-      var normX = distX/dist;
-      var normY = distY/dist;
-      balls[i].dx += alpha*normX/dist/dist;
-      balls[i].dy += alpha*normY/dist/dist;
-      energy += alpha / dist;
-    }
-    balls[i].dy += .01;
-    energy += -.02*balls[i].y;
+  for (var i=0; i<atoms.length; i++) {
+    atoms[i].vel.y += .02;
+    energy += -.01 * atoms[i].mass * atoms[i].pos.y;
   }
 
-  for (var i=0; i<balls.length; i++) {
-    if(balls[i].x + balls[i].dx > canvas.width-ballRadius || balls[i].x + balls[i].dx < ballRadius) {
-        envMomentum[0] += 2 * balls[i].dx;
-        balls[i].dx = -balls[i].dx;
+  for (var i=0; i<bonds.length; i++) {
+    bonds[i].forceAtoms();
+    if (bonds[i].broken) {
+      bonds.splice(i,1);
+      i--;
     }
-    if(balls[i].y + balls[i].dy > canvas.height-ballRadius || balls[i].y + balls[i].dy < ballRadius) {
-        envMomentum[1] += 2 * balls[i].dy;
-        balls[i].dy = -balls[i].dy;
+  }
+
+  for (var i=0; i<atoms.length; i++) {
+    for (var j=i+1; j<atoms.length; j++) {
+      if (atoms[i].collision(atoms[j])) {
+        var velDiff = {x:atoms[i].vel.x-atoms[j].vel.x, y:atoms[i].vel.y-atoms[j].vel.y};
+        var posDiff = {x:atoms[i].pos.x-atoms[j].pos.x, y:atoms[i].pos.y-atoms[j].pos.y};
+        var numerator = velDiff.x*posDiff.x + velDiff.y*posDiff.y;
+        if (numerator > 0) continue; // This helps atoms not to stick if they go through each other
+        var denomenator = posDiff.x*posDiff.x + posDiff.y*posDiff.y;
+        var massScalar = 2.0 / (atoms[i].mass + atoms[j].mass);
+        var bulkScalar = massScalar * numerator / denomenator;
+        atoms[i].vel.x -= atoms[j].mass * bulkScalar * posDiff.x;
+        atoms[i].vel.y -= atoms[j].mass * bulkScalar * posDiff.y;
+        atoms[j].vel.x += atoms[i].mass * bulkScalar * posDiff.x;
+        atoms[j].vel.y += atoms[i].mass * bulkScalar * posDiff.y;
+      }
+    }
+  }
+
+  for (var i=0; i<atoms.length; i++) {
+    var alpha = 1.05;
+    if(atoms[i].pos.x + atoms[i].vel.x > canvas.width-atoms[i].radius || atoms[i].pos.x + atoms[i].vel.x < atoms[i].radius) {
+        envMomentum[0] += (1+alpha) * atoms[i].mass * atoms[i].vel.x;
+        atoms[i].vel.x *= -alpha;
+    }
+    if(atoms[i].pos.y + atoms[i].vel.y > canvas.height-atoms[i].radius || atoms[i].pos.y + atoms[i].vel.y < atoms[i].radius) {
+        envMomentum[1] += (1+alpha) * atoms[i].mass * atoms[i].vel.y;
+        atoms[i].vel.y *= -alpha;
     }
 
-    balls[i].x += balls[i].dx;
-    balls[i].y += balls[i].dy;
+    atoms[i].pos.x += atoms[i].vel.x;
+    atoms[i].pos.y += atoms[i].vel.y;
   }
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawBall();
+  for (var i=0; i<bonds.length; i++) bonds[i].draw();
+  for (var i=0; i<atoms.length; i++) atoms[i].draw();
 
   var momentum = [0,0];
   momentum[0] += envMomentum[0];
   momentum[1] += envMomentum[1];
-  for (var i=0; i<balls.length; i++) {
-    energy += balls[i].dx*balls[i].dx + balls[i].dy*balls[i].dy;
-    momentum[0] += balls[i].dx;
-    momentum[1] += balls[i].dy;
+  for (var i=0; i<atoms.length; i++) {
+    energy += 0.5 * atoms[i].mass * (atoms[i].vel.x*atoms[i].vel.x + atoms[i].vel.y*atoms[i].vel.y);
+    momentum[0] += atoms[i].mass * atoms[i].vel.x;
+    momentum[1] += atoms[i].mass * atoms[i].vel.y;
   }
+  ctx.fillStyle = "#000000";
   ctx.fillText("E:" + energy, 5, 15);
   ctx.fillText("p[x]:" + momentum[0], 5, 30);
   ctx.fillText("p[y]:" + momentum[1], 5, 45);
 
 }
 
-setInterval(draw, 16);
+setInterval(draw, 33);
 
 </script>
 
