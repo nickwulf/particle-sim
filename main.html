@@ -12,6 +12,8 @@
 
 <canvas id="myCanvas" width="960" height="640"></canvas>
 
+<script src=./seedrandom.js></script>
+
 <script>
 
 function Atom (pos, vel, radius, color) {
@@ -28,6 +30,14 @@ function Atom (pos, vel, radius, color) {
     ctx.beginPath();
     ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI*2);
     ctx.fill();
+  };
+
+  this.randomizePos = function(minPos, maxPos) {
+    this.pos = {x:Math.random()*(maxPos.x-minPos.x) + minPos.x, y:Math.random()*(maxPos.y-minPos.y) + minPos.y};
+  };
+
+  this.randomizeVel = function(minVel, maxVel) {
+    this.vel = {x:Math.random()*(maxVel.x-minVel.x) + minVel.x, y:Math.random()*(maxVel.y-minVel.y) + minVel.y};
   };
 
   this.testAtomCollision = function(other) {
@@ -203,7 +213,9 @@ function Block (pts, temp, color) {
     if (result[0] <= 1) {
       var rDotNorm = r.x*result[2].x + r.y*result[2].y;
       if (rDotNorm < 0) { // If the atom is traveling towards outside then don't worry about it
-        var newVel = {x:r.x-(2.0*rDotNorm*result[2].x), y:r.y-(2.0*rDotNorm*result[2].y)};
+        var alpha = 1.0;
+        alpha = 0.1;
+        var newVel = {x:r.x-((1.0+alpha)*rDotNorm*result[2].x), y:r.y-((1.0+alpha)*rDotNorm*result[2].y)};
         result[2] = newVel;
       } else {
         result[2] = r;
@@ -220,6 +232,7 @@ function Block (pts, temp, color) {
     for (var i=1; i<this.pts.length-1; i++) ctx.lineTo(this.pts[i].x, this.pts[i].y);
     ctx.closePath();
     ctx.fill();
+    this.color = "#000000";
   };
 }
 
@@ -231,7 +244,7 @@ function PerformanceTimer (steps) {
   this.startTimer = function() {
     var nowDate = new Date();
     this.startTime = nowDate.getTime();
-  }
+  };
 
   this.endTimer = function() {
     var nowDate = new Date();
@@ -239,24 +252,26 @@ function PerformanceTimer (steps) {
     this.queue.push(nowDate.getTime() - this.startTime);
     if (this.queue.length > steps) this.queue.shift();
     this.startTime = null;
-  }
+  };
 
   this.reportAverage = function() {
     var total = 0;
     for (var i=0; i<this.queue.length; i++) total += this.queue[i];
     return (1.0 * total / this.queue.length);
-  }
+  };
 }
 
 var canvas = document.getElementById("myCanvas");
 var ctx = canvas.getContext("2d");
-
 var frameTimer = new PerformanceTimer(100);
 var drawTimer = new PerformanceTimer(100);
 var atomOnAtomTimer = new PerformanceTimer(100);
 
+Math.seedrandom(0);
+
 var mousePos = {x:0, y:0};
 var mouseClickPos = mousePos;
+var frameNumber = 0;
 
 canvas.addEventListener('mousemove', handleMouseMoveEvent, false);
 function handleMouseMoveEvent(evt) {
@@ -270,39 +285,63 @@ var y = canvas.height-30.0;
 var balls = [];
 var atoms = [];
 var envMomentum = [0,0];
-var atomCount = 50;
+var atomCount = 100;
+// for (var i=0; i<atomCount; i++) {
+//   var randColor = "rgb\(" + Math.round(230*Math.random()) + "," + Math.round(230*Math.random()) + "," + Math.round(230*Math.random()) + "\)";
+//   var newAtom = new Atom({x:i*10+20,y:400}, {x:0,y:0}, 1+8.0*Math.random(), randColor);
+//   newAtom.randomizePos({x:30,y:30}, {x:930,y:610});
+//   newAtom.randomizeVel({x:-5,y:-5}, {x:5,y:5});
+//   atoms.push(newAtom);
+// }
+// atoms.push(new Atom({x:200,y:300}, {x:0,y:0}, 20, "#FF0000"));
+// atoms.push(new Atom({x:201,y:300}, {x:0,y:0}, 20, "#00FF00"));
 for (var i=0; i<atomCount; i++) {
-  atoms.push(new Atom({x:20+i*16, y:y-350}, {x:1, y:-i*.1}, 8.0, "#FF95DD"));
-  atoms.push(new Atom({x:20+i*14, y:y-300}, {x:1, y:-i*.1}, 7.0, "#0095DD"));
-  atoms.push(new Atom({x:20+i*12, y:y-250}, {x:1, y:-i*.1}, 6.0, "#0095DD"));
-  atoms.push(new Atom({x:20+i*10, y:y-200}, {x:1, y:-i*.1}, 5.0, "#0095DD"));
-  atoms.push(new Atom({x:20+i*16, y:y-150}, {x:1, y:-i*.1}, 4.0, "#0095DD"));
-  atoms.push(new Atom({x:20+i*16, y:y-100}, {x:1, y:-i*.1}, 3.0, "#0095DD"));
-  atoms.push(new Atom({x:20+i*16, y:y-50}, {x:1, y:-i*.1}, 2.0, "#0095DD"));
-  atoms.push(new Atom({x:20+i*16, y:y}, {x:1, y:-i*.1}, 1.0, "#0095DD"));
+  var newAtom = new Atom({x:i*10+20,y:400}, {x:0,y:0}, 10, "#FF0000");
+  newAtom.randomizePos({x:30,y:30}, {x:450,y:610});
+  newAtom.randomizeVel({x:-10,y:-10}, {x:10,y:10});
+  atoms.push(newAtom);
+}
+for (var i=0; i<atomCount; i++) {
+  var newAtom = new Atom({x:i*10+20,y:400}, {x:0,y:0}, 5, "#AAAA00");
+  newAtom.randomizePos({x:510,y:30}, {x:930,y:610});
+  newAtom.randomizeVel({x:-5,y:-5}, {x:5,y:5});
+  atoms.push(newAtom);
 }
 var bonds = [];
 for (var i=0; i<392; i+=8) {
-  bonds.push(new Bond(atoms[i],atoms[i+8]));
+  // bonds.push(new Bond(atoms[i],atoms[i+8]));
   // bonds.push(new Bond(atoms[i+1],atoms[i+9]));
   // bonds.push(new Bond(atoms[i+2],atoms[i+10]));
   // bonds.push(new Bond(atoms[i+3],atoms[i+11]));
 }
 //bonds.push(new Bond(atoms[0],atoms[8]));
 var blocks = [];
-blocks.push(new Block([[400,150], [600,250], [600,500], [400,500]], 0, "#000000"));
-blocks.push(new Block([[200,200], [650,200], [275,250], [300,600]], 0, "#000000"));
+blocks.push(new Block([[10,10], [950,10], [950,20], [10,20]], 0, "#000000"));
+blocks.push(new Block([[10,620], [950,620], [950,630], [10,630]], 0, "#000000"));
+blocks.push(new Block([[10,10], [20,10], [20,630], [10,630]], 0, "#000000"));
+blocks.push(new Block([[940,10], [950,10], [950,630], [940,630]], 0, "#000000"));
+blocks.push(new Block([[475,10], [485,10], [485,630], [475,630]], 0, "#000000"));
+// blocks.push(new Block([[200,200], [650,200], [275,250], [300,600]], 0, "#000000"));
+
+var atom2atom = [];
+for (var i=0; i<atoms.length; i++) {
+  atom2atom.push([])
+  for (var j=0; j<atoms.length; j++) {
+    atom2atom[i].push(0);
+  }
+}
 
 
 
 function draw() {
+  frameNumber ++;
   frameTimer.endTimer();
   frameTimer.startTimer();
   drawTimer.startTimer();
   var energy = 0;
   for (var i=0; i<atoms.length; i++) {
     atoms[i].vel.y += .02;
-    //energy += -.01 * atoms[i].mass * atoms[i].pos.y;
+    // energy += -.01 * atoms[i].mass * atoms[i].pos.y;
   }
 
   for (var i=0; i<bonds.length; i++) {
@@ -318,15 +357,15 @@ function draw() {
   atomOnAtomTimer.endTimer();
 
   for (var a=0; a<atoms.length; a++) {
-    var alpha = .9;
-    if(atoms[a].pos.x + atoms[a].vel.x > canvas.width-atoms[a].radius || atoms[a].pos.x + atoms[a].vel.x < atoms[a].radius) {
-        envMomentum[0] += (1+alpha) * atoms[a].mass * atoms[a].vel.x;
-        atoms[a].vel.x *= -alpha;
-    }
-    if(atoms[a].pos.y + atoms[a].vel.y > canvas.height-atoms[a].radius || atoms[a].pos.y + atoms[a].vel.y < atoms[a].radius) {
-        envMomentum[1] += (1+alpha) * atoms[a].mass * atoms[a].vel.y;
-        atoms[a].vel.y *= -alpha;
-    }
+    // var alpha = .9;
+    // if(atoms[a].pos.x + atoms[a].vel.x > canvas.width-atoms[a].radius || atoms[a].pos.x + atoms[a].vel.x < atoms[a].radius) {
+    //     envMomentum[0] += (1+alpha) * atoms[a].mass * atoms[a].vel.x;
+    //     atoms[a].vel.x *= -alpha;
+    // }
+    // if(atoms[a].pos.y + atoms[a].vel.y > canvas.height-atoms[a].radius || atoms[a].pos.y + atoms[a].vel.y < atoms[a].radius) {
+    //     envMomentum[1] += (1+alpha) * atoms[a].mass * atoms[a].vel.y;
+    //     atoms[a].vel.y *= -alpha;
+    // }
 
     atoms[a].pos.x += atoms[a].vel.x;
     atoms[a].pos.y += atoms[a].vel.y;
@@ -350,100 +389,22 @@ function draw() {
     momentum[0] += atoms[i].mass * atoms[i].vel.x;
     momentum[1] += atoms[i].mass * atoms[i].vel.y;
   }
+  var energy1 = 0;
+  var energy2 = 0;
+  for (var i=0; i<atomCount; i++) {
+    energy1 += 0.5 * atoms[i].mass * (atoms[i].vel.x*atoms[i].vel.x + atoms[i].vel.y*atoms[i].vel.y);
+    energy2 += 0.5 * atoms[i+atomCount].mass * (atoms[i+atomCount].vel.x*atoms[i+atomCount].vel.x + atoms[i+atomCount].vel.y*atoms[i+atomCount].vel.y);
+  }
 
   ctx.fillStyle = "#000000";
-  ctx.fillText("FPS: " + Math.round(1000/frameTimer.reportAverage()) + " - " + Math.round(100*drawTimer.reportAverage()/frameTimer.reportAverage()) + "\%", 5, 15);
-  ctx.fillText("E:" + energy, 5, 30);
-  ctx.fillText("p[x]:" + momentum[0], 5, 45);
-  ctx.fillText("p[y]:" + momentum[1], 5, 60);
-  ctx.fillText("mouse: " + mousePos.x + ", " + mousePos.y, 5, 75);
-  ctx.fillText("mouse2: " + mouseClickPos.x + ", " + mouseClickPos.y, 5, 90);
-  ctx.fillText("AtomOnAtom (us):" + Math.round(1000*atomOnAtomTimer.reportAverage()), 105, 15);
+  ctx.fillText("FPS: " + Math.round(1000/frameTimer.reportAverage()) + " - " + Math.round(100*drawTimer.reportAverage()/frameTimer.reportAverage()) + "\%", 25, 35);
+  ctx.fillText("E:" + energy, 25, 50);
+  ctx.fillText("E1:" + energy1, 25, 65);
+  ctx.fillText("E2:" + energy2, 25, 80);
+  ctx.fillText("mouse: " + mousePos.x + ", " + mousePos.y, 25, 95);
+  ctx.fillText("frameNumber: " + frameNumber, 25, 110);
+  ctx.fillText("AtomOnAtom (us):" + Math.round(1000*atomOnAtomTimer.reportAverage()), 125, 35);
 
-  ctx.strokeStyle = "#0000FF";
-  var mouseRadius = 15;
-  var mouseSwitch = false;
-  if (mouseSwitch) {
-    var temp = mousePos;
-    mousePos = mouseClickPos;
-    mouseClickPos = temp;
-  }
-  var mouseClickDiff = {x:mousePos.x-mouseClickPos.x, y:mousePos.y-mouseClickPos.y};
-  var mouseClickDist = Math.sqrt(Math.pow(mouseClickDiff.x,2) + Math.pow(mouseClickDiff.y,2));
-  var mouseClickDir = {x:1.0*mouseClickDiff.x/mouseClickDist, y:1.0*mouseClickDiff.y/mouseClickDist};
-  var mouseClickNorm = {x:-mouseClickDir.y, y:mouseClickDir.x};
-  var mouseOffset = {x:mouseClickNorm.x*mouseRadius, y:mouseClickNorm.y*mouseRadius};
-  ctx.beginPath();
-  ctx.moveTo(mousePos.x, mousePos.y);
-  ctx.lineTo(mouseClickPos.x, mouseClickPos.y);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(mousePos.x+mouseOffset.x, mousePos.y+mouseOffset.y);
-  ctx.lineTo(mouseClickPos.x+mouseOffset.x, mouseClickPos.y+mouseOffset.y);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(mousePos.x-mouseOffset.x, mousePos.y-mouseOffset.y);
-  ctx.lineTo(mouseClickPos.x-mouseOffset.x, mouseClickPos.y-mouseOffset.y);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(mousePos.x, mousePos.y, mouseRadius, 0, Math.PI*2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(mouseClickPos.x, mouseClickPos.y, mouseRadius, 0, Math.PI*2.0);
-  ctx.stroke();
-
-  var mouseAtom = new Atom(mousePos, mouseClickDiff, mouseRadius, "#FF95DD");
-
-  ctx.strokeStyle = "#FF0000";
-  for (var i=0; i<blocks.length; i++) blocks[i].color = "#000000";
-  var t = 1.0;
-  var lastBlock = null;
-  var lastObjectId = null;
-  var hitNum = 100;
-  while (t>0) {
-    var result = [t, null, null, null];
-    var newLastBlock = null;
-    for (var i=0; i<blocks.length; i++) {
-      var resultTemp;
-      if (lastBlock == i) resultTemp = blocks[i].collision(mouseAtom, t, lastObjectId);
-      else resultTemp = blocks[i].collision(mouseAtom, t, null);
-      if (resultTemp[0] < result[0]) {
-        result = resultTemp;
-        newLastBlock = i;
-      }
-    }
-    lastBlock = newLastBlock;
-    lastObjectId = result[3];
-    if (result[1] == null) break;
-    t -= result[0];
-    hitNum--;
-    if (hitNum <= 0) t = 0;
-
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(result[1].x, result[1].y, mouseRadius, 0, Math.PI*2.0);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(result[1].x, result[1].y);
-    ctx.lineTo(result[2].x*(t)+result[1].x, result[2].y*(t)+result[1].y);
-    ctx.stroke();
-
-    mouseAtom.vel = result[2];
-    mouseAtom.pos = {x:t*result[2].x+result[1].x, y:t*result[2].y+result[1].y};
-
-  }
-  ctx.fillText("hitNum: " + hitNum, 5, 120);
-
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(mouseAtom.pos.x, mouseAtom.pos.y, mouseRadius, 0, Math.PI*2.0);
-  ctx.stroke();
-
-  if (mouseSwitch) {
-    var temp = mousePos;
-    mousePos = mouseClickPos;
-    mouseClickPos = temp;
-  }
   drawTimer.endTimer();
 }
 
@@ -469,17 +430,45 @@ function impactAtomsOnAtoms(atoms) {
       if (atoms[j].pos.y+atoms[j].radius < minY) continue;
       if (atoms[j].pos.y-atoms[j].radius > maxY) continue;
       if (atoms[i].testAtomCollision(atoms[j])) {
+        if (atom2atom[i][j] < 10) atom2atom[i][j] += 1;
+        // Handle collision due to opposing velocities
         var velDiff = {x:atoms[i].vel.x-atoms[j].vel.x, y:atoms[i].vel.y-atoms[j].vel.y};
         var posDiff = {x:atoms[i].pos.x-atoms[j].pos.x, y:atoms[i].pos.y-atoms[j].pos.y};
         var numerator = velDiff.x*posDiff.x + velDiff.y*posDiff.y;
-        if (numerator > 0) continue; // This helps atoms not to stick if they go through each other
         var denomenator = posDiff.x*posDiff.x + posDiff.y*posDiff.y;
-        var massScalar = 2.0 / (atoms[i].mass + atoms[j].mass);
-        var bulkScalar = massScalar * numerator / denomenator;
-        atoms[i].vel.x -= atoms[j].mass * bulkScalar * posDiff.x;
-        atoms[i].vel.y -= atoms[j].mass * bulkScalar * posDiff.y;
-        atoms[j].vel.x += atoms[i].mass * bulkScalar * posDiff.x;
-        atoms[j].vel.y += atoms[i].mass * bulkScalar * posDiff.y;
+        if (denomenator == 0) continue; // This stops atoms from breaking when on top of each other
+        if (numerator <= 0) { // This helps atoms not to stick if they go through each other
+          var massScalar = 2.0 / (atoms[i].mass + atoms[j].mass);
+          var bulkScalar = massScalar * numerator / denomenator;
+          atoms[i].vel.x -= atoms[j].mass * bulkScalar * posDiff.x;
+          atoms[i].vel.y -= atoms[j].mass * bulkScalar * posDiff.y;
+          atoms[j].vel.x += atoms[i].mass * bulkScalar * posDiff.x;
+          atoms[j].vel.y += atoms[i].mass * bulkScalar * posDiff.y;
+        }
+        else {
+          //if (atom2atom[i][j] < 5) continue;
+          // Handle slight push off due to close positions
+          // Don't execute when atoms collide or excess energy will be added
+          var newDiff = {x:posDiff.x+velDiff.x, y:posDiff.y+velDiff.y};
+          var totalRadius = atoms[i].radius + atoms[j].radius;
+          if ((newDiff.x*newDiff.x + newDiff.y*newDiff.y) > (totalRadius*totalRadius)) continue; // Also don't execute if atoms are moving away quickly
+          var posDiffMag = Math.sqrt(denomenator);
+          var displacement = Math.pow(totalRadius - posDiffMag,1);
+          var springConstant = 1.0;
+          var bulkCalc = springConstant * displacement / posDiffMag;
+          var velDelta1 = bulkCalc / atoms[i].mass;
+          var velDelta2 = bulkCalc / atoms[j].mass;
+          // if (velDelta1 > .2) velDelta1 = .2;
+          // if (velDelta2 > .2) velDelta2 = .2;
+          atoms[i].vel.x += velDelta1 * posDiff.x;
+          atoms[i].vel.y += velDelta1 * posDiff.y;
+          atoms[j].vel.x -= velDelta2 * posDiff.x;
+          atoms[j].vel.y -= velDelta2 * posDiff.y;
+          // atoms[i].color = "rgb\(" + Math.round(230*Math.random()) + "," + Math.round(230*Math.random()) + "," + Math.round(230*Math.random()) + "\)";
+          // atoms[j].color = "rgb\(" + Math.round(230*Math.random()) + "," + Math.round(230*Math.random()) + "," + Math.round(230*Math.random()) + "\)";
+        }
+      } else {
+        if (atom2atom[i][j] > 0) atom2atom[i][j] -= 1;
       }
     }
   }
@@ -494,6 +483,7 @@ function impactAtomOnBlocks(atom, blocks) {
     var result = [t, null, null, null];
     var newLastBlock = null;
     for (var i=0; i<blocks.length; i++) {
+      if (mousePos.x>800 && i==blocks.length-1) continue;
       var resultTemp;
       if (lastBlock == i) resultTemp = blocks[i].collision(atom, t, lastObjectId);
       else resultTemp = blocks[i].collision(atom, t, null);
