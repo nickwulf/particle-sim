@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Gamedev Canvas Workshop</title>
+    <style>
+    	* { padding: 0; margin: 50; }
+    	canvas { background: #eee; display: block; margin: 0 auto; }
+    </style>
+</head>
+<body>
+
+<canvas id="myCanvas" width="480" height="320"></canvas>
+
+<script>
+var canvas = document.getElementById("myCanvas");
+var ctx = canvas.getContext("2d");
+var ballRadius = 10;
+var x = canvas.width/2.0;
+var y = canvas.height-30.0;
+var balls = [];
+var envMomentum = [0,0];
+var ballCount = 2;
+var alpha = 0;
+for (var i=0; i<ballCount; i++) {
+  balls.push({"x":20+i*50, "y":y, "dx":1, "dy":i});
+}
+balls[0].x = 150;
+balls[0].y = 150;
+balls[0].dx = 0;
+balls[0].dy = 0;
+//balls[1].x = 400;
+//balls[1].y = 160;
+//balls[1].dx = 0;
+//balls[1].dy = 0;
+
+function drawBall() {
+  for (var i=0; i<balls.length; i++) {
+    ctx.beginPath();
+    ctx.arc(balls[i].x, balls[i].y, ballRadius, 0, Math.PI*2);
+    ctx.fillStyle = "#0095DD";
+    ctx.fill();
+    ctx.closePath();
+  }
+}
+
+function draw() {
+  var energy = 0;
+  for (var i=0; i<balls.length; i++) {
+    for (var j=0; j<balls.length; j++) {
+      if (i == j) continue;
+      var distX = 0.0+balls[i].x - balls[j].x;
+      var distY = 0.0+balls[i].y - balls[j].y;
+      var dist = Math.sqrt(distX*distX + distY*distY);
+      var normX = distX/dist;
+      var normY = distY/dist;
+      balls[i].dx += alpha*normX/dist/dist;
+      balls[i].dy += alpha*normY/dist/dist;
+      energy += alpha / dist;
+    }
+    balls[i].dy += .01;
+    energy += -.02*balls[i].y;
+  }
+
+  for (var i=0; i<balls.length; i++) {
+    if(balls[i].x + balls[i].dx > canvas.width-ballRadius || balls[i].x + balls[i].dx < ballRadius) {
+        envMomentum[0] += 2 * balls[i].dx;
+        balls[i].dx = -balls[i].dx;
+    }
+    if(balls[i].y + balls[i].dy > canvas.height-ballRadius || balls[i].y + balls[i].dy < ballRadius) {
+        envMomentum[1] += 2 * balls[i].dy;
+        balls[i].dy = -balls[i].dy;
+    }
+
+    balls[i].x += balls[i].dx;
+    balls[i].y += balls[i].dy;
+  }
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawBall();
+
+  var momentum = [0,0];
+  momentum[0] += envMomentum[0];
+  momentum[1] += envMomentum[1];
+  for (var i=0; i<balls.length; i++) {
+    energy += balls[i].dx*balls[i].dx + balls[i].dy*balls[i].dy;
+    momentum[0] += balls[i].dx;
+    momentum[1] += balls[i].dy;
+  }
+  ctx.fillText("E:" + energy, 5, 15);
+  ctx.fillText("p[x]:" + momentum[0], 5, 30);
+  ctx.fillText("p[y]:" + momentum[1], 5, 45);
+
+}
+
+setInterval(draw, 16);
+
+</script>
+
+</body>
+</html>
