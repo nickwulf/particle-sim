@@ -1,20 +1,3 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Gamedev Canvas Workshop</title>
-    <style>
-    	* { padding: 0; margin: 50; }
-    	canvas { background: #eee; display: block; margin: 0 auto; }
-    </style>
-  </head>
-<body>
-
-<canvas id="myCanvas" width="960" height="640"></canvas>
-
-<script src=./seedrandom.js></script>
-
-<script>
 
 function Atom (pos, vel, radius, color) {
   this.pos = {x:pos.x, y:pos.y};
@@ -268,7 +251,7 @@ var frameTimer = new PerformanceTimer(100);
 var drawTimer = new PerformanceTimer(100);
 var atomOnAtomTimer = new PerformanceTimer(100);
 
-Math.seedrandom(1);
+Math.seedrandom(0);
 
 var mousePos = {x:0, y:0};
 var mouseClickPos = mousePos;
@@ -296,21 +279,15 @@ var atomCount = 100;
 // }
 // atoms.push(new Atom({x:200,y:300}, {x:0,y:0}, 20, "#FF0000"));
 // atoms.push(new Atom({x:201,y:300}, {x:0,y:0}, 20, "#00FF00"));
-// for (var i=0; i<atomCount; i++) {
-//   var newAtom = new Atom({x:i*10+20,y:400}, {x:0,y:0}, 20, "#FF0000");
-//   newAtom.randomizePos({x:30,y:30}, {x:450,y:610});
-//   newAtom.randomizeVel({x:-10,y:-10}, {x:10,y:10});
-//   atoms.push(newAtom);
-// }
-// for (var i=0; i<atomCount*5; i++) {
-//   var newAtom = new Atom({x:i*10+20,y:400}, {x:0,y:0}, 5, "#AAAA00");
-//   newAtom.randomizePos({x:510,y:30}, {x:930,y:610});
-//   newAtom.randomizeVel({x:-5,y:-5}, {x:5,y:5});
-//   atoms.push(newAtom);
-// }
-for (var i=0; i<10; i++) {
+for (var i=0; i<atomCount; i++) {
   var newAtom = new Atom({x:i*10+20,y:400}, {x:0,y:0}, 20, "#FF0000");
-  newAtom.randomizePos({x:40,y:30}, {x:41,y:610});
+  newAtom.randomizePos({x:30,y:30}, {x:450,y:610});
+  newAtom.randomizeVel({x:-10,y:-10}, {x:10,y:10});
+  atoms.push(newAtom);
+}
+for (var i=0; i<atomCount*5; i++) {
+  var newAtom = new Atom({x:i*10+20,y:400}, {x:0,y:0}, 5, "#AAAA00");
+  newAtom.randomizePos({x:510,y:30}, {x:930,y:610});
   newAtom.randomizeVel({x:-5,y:-5}, {x:5,y:5});
   atoms.push(newAtom);
 }
@@ -328,7 +305,7 @@ blocks.push(new Block([[10,620], [950,620], [950,630], [10,630]], 0, "#000000"))
 blocks.push(new Block([[10,10], [20,10], [20,630], [10,630]], 0, "#000000"));
 blocks.push(new Block([[940,10], [950,10], [950,630], [940,630]], 0, "#000000"));
 blocks.push(new Block([[475,10], [485,10], [485,630], [475,630]], 0, "#000000"));
-blocks.push(new Block([[61,10], [71,10], [71,630], [61,630]], 0, "#000000"));
+// blocks.push(new Block([[61,10], [71,10], [71,630], [61,630]], 0, "#000000"));
 // blocks.push(new Block([[200,200], [650,200], [275,250], [300,600]], 0, "#000000"));
 
 var atom2atom = [];
@@ -496,7 +473,7 @@ function pushAtomsOnAtoms(atoms) {
       if (atoms[j].pos.y+atoms[j].radius < minY) continue;
       if (atoms[j].pos.y-atoms[j].radius > maxY) continue;
       if (atoms[i].testAtomCollision(atoms[j])) {
-        if (atom2atom[i][j] < 20) atom2atom[i][j] += 1;
+        if (atom2atom[i][j] < 10) atom2atom[i][j] += 1;
         // Handle collision due to opposing velocities
         var velDiff = {x:atoms[i].vel.x-atoms[j].vel.x, y:atoms[i].vel.y-atoms[j].vel.y};
         var posDiff = {x:atoms[i].pos.x-atoms[j].pos.x, y:atoms[i].pos.y-atoms[j].pos.y};
@@ -508,31 +485,34 @@ function pushAtomsOnAtoms(atoms) {
           // var bulkScalar = massScalar * numerator / denomenator;
           // atoms[i].vel.x -= atoms[j].mass * bulkScalar * posDiff.x;
           // atoms[i].vel.y -= atoms[j].mass * bulkScalar * posDiff.y;
-          // Handle slight push off due to close positions
-          // Don't execute when atoms collide or excess energy will be added
           // atoms[j].vel.x += atoms[i].mass * bulkScalar * posDiff.x;
           // atoms[j].vel.y += atoms[i].mass * bulkScalar * posDiff.y;
         }
         else {
-          //if (atom2atom[i][j] < 5) continue;
+          // if (atom2atom[i][j] < 5) continue;
+          // Handle slight push off due to close positions
+          // Don't execute when atoms collide or excess energy will be added
           var newDiff = {x:posDiff.x+velDiff.x, y:posDiff.y+velDiff.y};
           var totalRadius = atoms[i].radius + atoms[j].radius;
           if ((newDiff.x*newDiff.x + newDiff.y*newDiff.y) > (totalRadius*totalRadius)) continue; // Also don't execute if atoms are moving away quickly
           var posDiffMag = Math.sqrt(denomenator);
-          var displacement = Math.pow(totalRadius - posDiffMag,1) / 5.0;
-          var bulkCalc = displacement / posDiffMag;
+          var displacement = Math.pow(totalRadius - posDiffMag,1);
+          var springConstant = 0.5;
+          var bulkCalc = springConstant * displacement / posDiffMag;
+          var velDelta1 = bulkCalc / atoms[i].mass;
+          var velDelta2 = bulkCalc / atoms[j].mass;
           // if (velDelta1 > .2) velDelta1 = .2;
           // if (velDelta2 > .2) velDelta2 = .2;
 
-          atoms[i].push.x += bulkCalc * posDiff.x;
-          atoms[i].push.y += bulkCalc * posDiff.y;
-          atoms[j].push.x -= bulkCalc * posDiff.x;
-          atoms[j].push.y -= bulkCalc * posDiff.y;
+          // atoms[i].pos.x += velDelta1 * posDiff.x;
+          // atoms[i].pos.y += velDelta1 * posDiff.y;
+          // atoms[j].pos.x -= velDelta2 * posDiff.x;
+          // atoms[j].pos.y -= velDelta2 * posDiff.y;
 
-          // atoms[i].vel.x += velDelta1 * posDiff.x;
-          // atoms[i].vel.y += velDelta1 * posDiff.y;
-          // atoms[j].vel.x -= velDelta2 * posDiff.x;
-          // atoms[j].vel.y -= velDelta2 * posDiff.y;
+          atoms[i].push.x += velDelta1 * posDiff.x;
+          atoms[i].push.y += velDelta1 * posDiff.y;
+          atoms[j].push.x -= velDelta2 * posDiff.x;
+          atoms[j].push.y -= velDelta2 * posDiff.y;
           // atoms[i].color = "rgb\(" + Math.round(230*Math.random()) + "," + Math.round(230*Math.random()) + "," + Math.round(230*Math.random()) + "\)";
           // atoms[j].color = "rgb\(" + Math.round(230*Math.random()) + "," + Math.round(230*Math.random()) + "," + Math.round(230*Math.random()) + "\)";
         }
@@ -542,8 +522,8 @@ function pushAtomsOnAtoms(atoms) {
     }
   }
   for (var i=0; i<atoms.length; i++) {
-    atoms[i].pos.x += atoms[i].push.x;
-    atoms[i].pos.y += atoms[i].push.y;
+    atoms[i].vel.x += atoms[i].push.x;
+    atoms[i].vel.y += atoms[i].push.y;
   }
 }
 
@@ -576,8 +556,3 @@ function impactAtomOnBlocks(atom, blocks) {
     atom.pos = {x:t*result[2].x+result[1].x, y:t*result[2].y+result[1].y};
   }
 }
-
-</script>
-
-</body>
-</html>
