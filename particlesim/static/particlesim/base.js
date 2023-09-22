@@ -24,7 +24,7 @@ class Atom {
    draw() {
       ctx.fillStyle = this.color;
       ctx.beginPath();
-      ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI*2);
+      ctx.arc(...toArray(viewTransWorldToDraw(this.pos)), viewScaleWorldToDraw(this.radius), 0, Math.PI*2);
       ctx.fill();
    }
 
@@ -61,8 +61,8 @@ class Bond {
 
    draw() {
       ctx.beginPath();
-      ctx.moveTo(this.atom1.pos.x, this.atom1.pos.y);
-      ctx.lineTo(this.atom2.pos.x, this.atom2.pos.y);
+      ctx.moveTo(...toArray(viewTransWorldToDraw(this.atom1.pos)));
+      ctx.lineTo(...toArray(viewTransWorldToDraw(this.atom2.pos)));
       ctx.stroke();
    }
 
@@ -137,7 +137,7 @@ class Block {
       if ((p.x-atom.radius>this.maxPos.x) && (atom.pos.x-atom.radius>this.maxPos.x)) return result;
       if ((p.y+atom.radius<this.minPos.y) && (atom.pos.y+atom.radius<this.minPos.y)) return result;
       if ((p.y-atom.radius>this.maxPos.y) && (atom.pos.y-atom.radius>this.maxPos.y)) return result;
-      this.color = "#0000FF";
+      this.color = '#0000FF';
 
       // Test each of the walls
       for (let i=0; i<this.pts.length-1; i++) {
@@ -155,7 +155,7 @@ class Block {
             let t = 1.0 * tNum / rCrossS; // t is relative distance along r
             let u = 1.0 * uNum / rCrossS; // u is relative distance along s
             if ((t>=0 && t<=1) && (u>=0 && u<=1) && t<result.t) {
-               //this.color = "#FF0000";
+               //this.color = '#FF0000';
                let collidePos = {x:t*r.x+p.x, y:t*r.y+p.y};
                result = {t:t, collidePos:collidePos, wallNorm:this.norms[i], wallInd:i, velNew:null};
             }
@@ -171,7 +171,7 @@ class Block {
             let projDist = Math.sqrt(squareMag(projDiff));
             let projDotNorm = projDiff.x*this.norms[i].x + projDiff.y*this.norms[i].y;
             if (projDist <= atom.radius && projDotNorm >= 0) {
-               //this.color = "#FF8888";
+               //this.color = '#FF8888';
                result = {t:0, collidePos:projPos, wallNorm:this.norms[i], wallInd:i, velNew:null};
             }
          }
@@ -202,7 +202,7 @@ class Block {
                   let normLeft = this.norms[this.norms.length-1];
                   if (i > 0) normLeft = this.norms[i-1];
                   if (((normLeft.x*norm.y)-(normLeft.y*norm.x) > 0) && ((this.norms[i].x*norm.y)-(this.norms[i].y*norm.x) < 0)) {
-                     //this.color = "#00FFFF";
+                     //this.color = '#00FFFF';
                      result = {t:t, collidePos:collidePos, wallNorm:norm, wallInd:i+this.pts.length-1, velNew:null};
                   }
                }
@@ -215,7 +215,7 @@ class Block {
             let norm = {x:pMinusC.x/pDist, y:pMinusC.y/pDist};
             let collidePos = {x:atom.radius*norm.x+this.pts[i].x, y:atom.radius*norm.y+this.pts[i].y}
             if (((normLeft.x*norm.y)-(normLeft.y*norm.x) > 0) && ((this.norms[i].x*norm.y)-(this.norms[i].y*norm.x) < 0)) {
-               //this.color = "#00AAAA";
+               //this.color = '#00AAAA';
                result = {t:0, collidePos:collidePos, wallNorm:norm, wallInd:i+this.pts.length-1, velNew:null};
             }
          }
@@ -237,11 +237,11 @@ class Block {
    draw() {
       ctx.fillStyle = this.color;
       ctx.beginPath();
-      ctx.moveTo(this.pts[0].x, this.pts[0].y);
-      for (let i=1; i<this.pts.length-1; i++) ctx.lineTo(this.pts[i].x, this.pts[i].y);
+      ctx.moveTo(...toArray(viewTransWorldToDraw(this.pts[0])));
+      for (let i=1; i<this.pts.length-1; i++) ctx.lineTo(...toArray(viewTransWorldToDraw(this.pts[i])));
       ctx.closePath();
       ctx.fill();
-      this.color = "#000000";
+      this.color = '#000000';
    }
 }
 
@@ -281,14 +281,16 @@ var canvas = null;
 var ctx = null;
 var timers = {frame:null, update:null, atomOnAtom:null, draw:null};
 var mouse = {pos:null, posClick:null};
+var viewDesiredDims = {width:1600, height:1000};
 var world = {};
 var atomCount = 100;
 
-document.addEventListener("DOMContentLoaded", function() {
-   Math.seedrandom(0);
+document.addEventListener('DOMContentLoaded', function() {
 
-   canvas = document.getElementById("myCanvas");
-   ctx = canvas.getContext("2d");
+   canvas = document.getElementById('part-sim-canvas');
+   canvas.width = viewDesiredDims.width;
+   canvas.height = viewDesiredDims.height;
+   ctx = canvas.getContext('2d');
 
    timers.frame = new PerformanceTimer(100);
    timers.update = new PerformanceTimer(100);
@@ -298,55 +300,18 @@ document.addEventListener("DOMContentLoaded", function() {
    mouse.pos = {x:0, y:0};
    mouse.posClick = {...mouse.pos};
 
-   world.atoms = [];
-   world.bonds = [];
-   world.blocks = [];
-   world.atom2atom = [];
-   world.envMomentum = [0,0];
-   world.frameNumber = 0;
-
-   function handleMouseMoveEvent(evt) {
+   canvas.addEventListener('mousemove', function(evt) {
       let rect = canvas.getBoundingClientRect();
-      mouse.pos = {x: evt.clientX - rect.left, y: evt.clientY - rect.top};
-   }
-   canvas.addEventListener('mousemove', handleMouseMoveEvent, false);
-   canvas.onclick = function() {mouse.posClick = mouse.pos};
+      mouse.pos = {};
+      mouse.pos.x = (evt.clientX - rect.left) / rect.width * canvas.width - canvas.width/2;
+      mouse.pos.y = (evt.clientY - rect.top) / rect.height * canvas.height - canvas.height/2;
+   });
+   canvas.onclick = function() {
+      mouse.posClick = {...mouse.pos};
+   };
 
-   for (let i=0; i<atomCount; i++) {
-      let newAtom = new Atom({x:i*10+20,y:400}, {x:0,y:0}, 20, "#FF0000");
-      newAtom.randomizePos({x:30,y:30}, {x:450,y:610});
-      newAtom.randomizeVel({x:-10,y:-10}, {x:10,y:10});
-      world.atoms.push(newAtom);
-   }
-   for (let i=0; i<atomCount*5; i++) {
-      let newAtom = new Atom({x:i*10+20,y:400}, {x:0,y:0}, 5, "#AAAA00");
-      newAtom.randomizePos({x:510,y:30}, {x:930,y:610});
-      newAtom.randomizeVel({x:-5,y:-5}, {x:5,y:5});
-      world.atoms.push(newAtom);
-   }
-   for (let i=0; i<392; i+=8) {
-      // world.bonds.push(new Bond(world.atoms[i],world.atoms[i+8]));
-      // world.bonds.push(new Bond(world.atoms[i+1],world.atoms[i+9]));
-      // world.bonds.push(new Bond(world.atoms[i+2],world.atoms[i+10]));
-      // world.bonds.push(new Bond(world.atoms[i+3],world.atoms[i+11]));
-   }
-   //world.bonds.push(new Bond(world.atoms[0],world.atoms[8]));
-   world.blocks.push(new Block([[10,10], [950,10], [950,20], [10,20]], 0, "#000000"));
-   world.blocks.push(new Block([[10,620], [950,620], [950,630], [10,630]], 0, "#000000"));
-   world.blocks.push(new Block([[10,10], [20,10], [20,630], [10,630]], 0, "#000000"));
-   world.blocks.push(new Block([[940,10], [950,10], [950,630], [940,630]], 0, "#000000"));
-   world.blocks.push(new Block([[475,10], [485,10], [485,630], [475,630]], 0, "#000000"));
-   // world.blocks.push(new Block([[61,10], [71,10], [71,630], [61,630]], 0, "#000000"));
-   // world.blocks.push(new Block([[200,200], [650,200], [275,250], [300,600]], 0, "#000000"));
+   loadWorld(WorldNames.TempTest, world);
 
-   for (let i in world.atoms) {
-      world.atom2atom.push([])
-      for (let j in world.atoms) {
-         world.atom2atom[i].push(0);
-      }
-   }
-
-   setInterval(update, 33);
 });
 
 
@@ -396,12 +361,12 @@ function update() {
       momentum[0] += a.mass * a.vel.x;
       momentum[1] += a.mass * a.vel.y;
    }
-   let energy1 = 0;
-   let energy2 = 0;
-   for (let i=0; i<atomCount; i++) {
-      energy1 += 0.5 * world.atoms[i].mass * (world.atoms[i].vel.x**2 + world.atoms[i].vel.y**2);
-      energy2 += 0.5 * world.atoms[i+atomCount].mass * (world.atoms[i+atomCount].vel.x**2 + world.atoms[i+atomCount].vel.y**2);
-   }
+   // let energy1 = 0;
+   // let energy2 = 0;
+   // for (let i=0; i<atomCount; i++) {
+   //    energy1 += 0.5 * world.atoms[i].mass * (world.atoms[i].vel.x**2 + world.atoms[i].vel.y**2);
+   //    energy2 += 0.5 * world.atoms[i+atomCount].mass * (world.atoms[i+atomCount].vel.x**2 + world.atoms[i+atomCount].vel.y**2);
+   // }
 
    // Completely clear the drawing area in preparation for new frame
    timers.draw.start();
@@ -413,16 +378,17 @@ function update() {
    for (let a of world.atoms) a.draw();
 
    // Draw stats on top of world
-   ctx.fillStyle = "#000000";
+   ctx.font = '16px sans-serif'
+   ctx.fillStyle = '#000000';
    let updateAvg = timers.update.getAverage();
-   ctx.fillText(`FPS: ${(1000/timers.frame.getAverage()).toFixed(1)} - ${(100*updateAvg/timers.frame.getAverage()).toFixed(1)}\%`, 25, 35);
-   ctx.fillText("E:" + energy, 25, 50);
-   ctx.fillText("E1:" + energy1, 25, 65);
-   ctx.fillText("E2:" + energy2, 25, 80);
-   ctx.fillText("mouse: " + mouse.pos.x + ", " + mouse.pos.y, 25, 95);
-   ctx.fillText("Frame #: " + world.frameNumber, 25, 110);
-   ctx.fillText(`AtomOnAtom: ${(100*timers.atomOnAtom.getAverage()/updateAvg).toFixed(1)}\%`, 125, 35);
-   ctx.fillText(`Draw: ${(100*timers.draw.getAverage()/updateAvg).toFixed(1)}\%`, 250, 35);
+   ctx.fillText(`FPS: ${(1000/timers.frame.getAverage()).toFixed(1)} - ${(100*updateAvg/timers.frame.getAverage()).toFixed(1)}\%`, 30, 50);
+   ctx.fillText('E:' + energy, 30, 75);
+   // ctx.fillText('E1:' + energy1, 30, 100);
+   // ctx.fillText('E2:' + energy2, 30, 125);
+   ctx.fillText('Mouse: ' + mouse.pos.x.toFixed(1) + ', ' + mouse.pos.y.toFixed(1), 30, 150);
+   ctx.fillText('Frame #: ' + world.frameNumber, 30, 175);
+   ctx.fillText(`AtomOnAtom: ${(100*timers.atomOnAtom.getAverage()/updateAvg).toFixed(1)}\%`, 200, 50);
+   ctx.fillText(`Draw: ${(100*timers.draw.getAverage()/updateAvg).toFixed(1)}\%`, 400, 50);
 
    timers.draw.end();
    timers.update.end();
@@ -438,6 +404,29 @@ function solveQuadratic(a,b,c) {
 
 function squareMag(coords) {
    return coords.x**2 + coords.y**2
+}
+
+function toArray(coords) {
+   return [coords.x, coords.y];
+}
+
+function viewTransWorldToDraw(coords) {
+   // Transform from world coordinates to draw coordinates. The world coordinate of [0,0] with [0,0] view offset corresponds to the center of the canvas
+   let coordsNew = {...coords};
+
+   coordsNew.x -= world.view.offset.x;
+   coordsNew.y -= world.view.offset.y;
+
+   coordsNew.x *= world.view.zoom;
+   coordsNew.y *= world.view.zoom;
+
+   coordsNew.x += canvas.width / 2;
+   coordsNew.y += canvas.height / 2;
+   return coordsNew;
+}
+
+function viewScaleWorldToDraw(size) {
+   return size * world.view.zoom;
 }
 
 function impactAtomsOnAtoms(atoms, atom2atom) {
@@ -486,8 +475,8 @@ function impactAtomsOnAtoms(atoms, atom2atom) {
                // atoms[i].vel.y += velDelta1 * posDiff.y;
                // atoms[j].vel.x -= velDelta2 * posDiff.x;
                // atoms[j].vel.y -= velDelta2 * posDiff.y;
-               // atoms[i].color = "rgb\(" + Math.round(230*Math.random()) + "," + Math.round(230*Math.random()) + "," + Math.round(230*Math.random()) + "\)";
-               // atoms[j].color = "rgb\(" + Math.round(230*Math.random()) + "," + Math.round(230*Math.random()) + "," + Math.round(230*Math.random()) + "\)";
+               // atoms[i].color = 'rgb\(' + Math.round(230*Math.random()) + ',' + Math.round(230*Math.random()) + ',' + Math.round(230*Math.random()) + '\)';
+               // atoms[j].color = 'rgb\(' + Math.round(230*Math.random()) + ',' + Math.round(230*Math.random()) + ',' + Math.round(230*Math.random()) + '\)';
             }
          } else {
             if (atom2atom[i][j] > 0) atom2atom[i][j] -= 1;
@@ -549,8 +538,8 @@ function pushAtomsOnAtoms(atoms, atom2atom) {
                atoms[i].push.y += velDelta1 * posDiff.y;
                atoms[j].push.x -= velDelta2 * posDiff.x;
                atoms[j].push.y -= velDelta2 * posDiff.y;
-               // atoms[i].color = "rgb\(" + Math.round(230*Math.random()) + "," + Math.round(230*Math.random()) + "," + Math.round(230*Math.random()) + "\)";
-               // atoms[j].color = "rgb\(" + Math.round(230*Math.random()) + "," + Math.round(230*Math.random()) + "," + Math.round(230*Math.random()) + "\)";
+               // atoms[i].color = 'rgb\(' + Math.round(230*Math.random()) + ',' + Math.round(230*Math.random()) + ',' + Math.round(230*Math.random()) + '\)';
+               // atoms[j].color = 'rgb\(' + Math.round(230*Math.random()) + ',' + Math.round(230*Math.random()) + ',' + Math.round(230*Math.random()) + '\)';
             }
          } else {
             if (atom2atom[i][j] > 0) atom2atom[i][j] -= 1;
