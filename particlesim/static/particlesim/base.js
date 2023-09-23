@@ -411,6 +411,8 @@ function update() {
 
    timers.draw.end();
    timers.update.end();
+
+   world.frameRequest = window.requestAnimationFrame(update);
 }
 
 function solveQuadratic(a,b,c) {

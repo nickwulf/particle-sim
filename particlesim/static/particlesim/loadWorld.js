@@ -139,7 +139,7 @@ function loadWorld(name, world={}) {
       }
    }
 
-   world.updateTimer = setInterval(update, 33);
+   world.frameRequest = window.requestAnimationFrame(update);
 
    return world;
 
@@ -154,6 +154,6 @@ function clearWorld(world) {
    world.frameNumber = 0;
    world.view = {offset:{x:0, y:0}, zoom: 1}; // Offset is in world coordinates
    world.gravity = 0.02;
-   if ('updateTimer' in world) clearInterval(world.updateTimer);
+   if ('frameRequest' in world) cancelAnimationFrame(world.frameRequest);
 
 }
