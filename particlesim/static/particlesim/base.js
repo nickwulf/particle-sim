@@ -48,8 +48,14 @@ class Bond {
    atom1;
    atom2;
    broken;
+   maxDist;
 
-   constructor(atom1, atom2) {
+   constructor(atom1, atom2, params) {
+      let paramsDefaults = {maxDist:8};
+      for (let p in paramsDefaults) {
+         if (p in params) this[p] = params[p];
+         else this[p] = paramsDefaults[p];
+      }
       this.atom1 = atom1;
       this.atom2 = atom2;
       atom1.bonds.push(this);
@@ -70,7 +76,7 @@ class Bond {
       let posDiff = {x:this.atom1.pos.x-this.atom2.pos.x, y:this.atom1.pos.y-this.atom2.pos.y};
       let dist = Math.sqrt(squareMag(posDiff));
       let displacement = dist - this.atom1.radius - this.atom2.radius;
-      if (displacement > 8) {
+      if (displacement > this.maxDist) {
          this.break();
          return
       }
@@ -135,7 +141,7 @@ class Block {
    }
 
    collision(atom, progress, avoidId) {
-      let result = {t:Infinity, collidePos:null, wallNorm:null, wallInd:null, velNew:null};
+      let result = {t:Infinity, collidePos:null, wallNorm:null, wallInd:null, newVel:null, newPos:null};
       let p = {x:atom.pos.x - atom.vel.x*progress, y:atom.pos.y - atom.vel.y*progress};
       let r = atom.vel;
       if ((p.x+atom.radius<this.minPos.x) && (atom.pos.x+atom.radius<this.minPos.x)) return result;
@@ -160,7 +166,7 @@ class Block {
             let u = 1.0 * uNum / rCrossS; // u is relative distance along s
             if ((t>=0 && t<=1) && (u>=0 && u<=1) && t<result.t) {
                let collidePos = {x:t*r.x+p.x, y:t*r.y+p.y};
-               result = {t:t, collidePos:collidePos, wallNorm:this.norms[i], wallInd:i, velNew:null};
+               result = {t:t, collidePos:collidePos, wallNorm:this.norms[i], wallInd:i, newVel:null, newPos:null};
             }
          }
 
@@ -174,7 +180,7 @@ class Block {
             let projDist = Math.sqrt(squareMag(projDiff));
             let projDotNorm = projDiff.x*this.norms[i].x + projDiff.y*this.norms[i].y;
             if (projDist <= atom.radius && projDotNorm >= 0) {
-               result = {t:0, collidePos:projPos, wallNorm:this.norms[i], wallInd:i, velNew:null};
+               result = {t:0, collidePos:projPos, wallNorm:this.norms[i], wallInd:i, newVel:null, newPos:null};
             }
          }
       }
@@ -204,7 +210,7 @@ class Block {
                   let normLeft = this.norms[this.norms.length-1];
                   if (i > 0) normLeft = this.norms[i-1];
                   if (((normLeft.x*norm.y)-(normLeft.y*norm.x) > 0) && ((this.norms[i].x*norm.y)-(this.norms[i].y*norm.x) < 0)) {
-                     result = {t:t, collidePos:collidePos, wallNorm:norm, wallInd:i+this.pts.length-1, velNew:null};
+                     result = {t:t, collidePos:collidePos, wallNorm:norm, wallInd:i+this.pts.length-1, newVel:null, newPos:null};
                   }
                }
             }
@@ -216,19 +222,19 @@ class Block {
             let norm = {x:pMinusC.x/pDist, y:pMinusC.y/pDist};
             let collidePos = {x:atom.radius*norm.x+this.pts[i].x, y:atom.radius*norm.y+this.pts[i].y}
             if (((normLeft.x*norm.y)-(normLeft.y*norm.x) > 0) && ((this.norms[i].x*norm.y)-(this.norms[i].y*norm.x) < 0)) {
-               result = {t:0, collidePos:collidePos, wallNorm:norm, wallInd:i+this.pts.length-1, velNew:null};
+               result = {t:0, collidePos:collidePos, wallNorm:norm, wallInd:i+this.pts.length-1, newVel:null, newPos:null};
             }
          }
       }
 
-      if (result.t <= 1) {
+      if (result.t <= progress) {
          let rDotNorm = r.x*result.wallNorm.x + r.y*result.wallNorm.y;
          if (rDotNorm < 0) { // If the atom is traveling towards outside then don't worry about it
             // Change energy of atom in norm direction to make it more closely match block energy/temp
             let energy = 0.5 * atom.mass * squareMag(r);
             let energyNorm = 0.5 * atom.mass * rDotNorm**2;
             let energyTarget = this.temp * (1 + 0.2*(1 - 2*Math.random()));
-            energyTarget = this.temp;
+            // energyTarget = this.temp;
             let energyAdd = (energyTarget - energy) * this.tempCondCoef * Math.sqrt(energyNorm / energy);
 
             // if (energyAdd < 0) energyAdd /= 2.5;
@@ -237,28 +243,17 @@ class Block {
 
             let rDotNormNew = Math.sqrt(energyNormNew / atom.mass * 2);
             let rDotNormDelta = rDotNormNew - rDotNorm;
-            result.velNew = {x:r.x + rDotNormDelta*result.wallNorm.x, y:r.y + rDotNormDelta*result.wallNorm.y};
+            result.newVel = {x:r.x + rDotNormDelta*result.wallNorm.x, y:r.y + rDotNormDelta*result.wallNorm.y};
+            result.newPos = {...result.collidePos};
+            result.newPos.x += (progress - result.t) * result.newVel.x;
+            result.newPos.y += (progress - result.t) * result.newVel.y;
 
-            // let energyTarget = this.temp;
-            // let speedTarget = Math.sqrt(energyTarget / atom.mass * 2);
-            // let speedPerp = Math.abs(r.x*result.wallNorm.y + r.y*-result.wallNorm.x);
-            // let speedNormTarget = Math.sqrt(speedTarget**2 - speedPerp**2);
-            // if (isNaN(speedNormTarget)) speedNormTarget = 0;
-            // let speedNormAdd = (speedNormTarget + rDotNorm) * this.tempCondCoef;
-            // let speedNormNew = Math.max(0, speedNormAdd - rDotNorm);
-            // let rDotNormDelta = speedNormNew - rDotNorm;
-            // result.velNew = {x:r.x + rDotNormDelta*result.wallNorm.x, y:r.y + rDotNormDelta*result.wallNorm.y};
-            //
-            // let energyNew = 0.5 * atom.mass * squareMag(result.velNew);
-            // console.log(energyNew);
-            //
-            // if (isNaN(energyNew)) {
-            //    debug = 0;
-            // }
 
          } else {
-            result = {t:Infinity, collidePos:null, wallNorm:null, wallInd:null, velNew:null};
+            result = {t:Infinity, collidePos:null, wallNorm:null, wallInd:null, newVel:null, newPos:null};
          }
+      } else {
+         result = {t:Infinity, collidePos:null, wallNorm:null, wallInd:null, newVel:null, newPos:null};
       }
       return result;
    }
@@ -327,7 +322,7 @@ document.addEventListener('DOMContentLoaded', function() {
    mouse.pos = {x:0, y:0};
    mouse.posClick = {...mouse.pos};
 
-   canvas.addEventListener('mousemove', function(evt) {
+   window.addEventListener('mousemove', function(evt) {
       let rect = canvas.getBoundingClientRect();
       mouse.pos = {};
       mouse.pos.x = (evt.clientX - rect.left) / rect.width * canvas.width - canvas.width/2;
@@ -363,7 +358,7 @@ function update() {
    // Apply forces from atom-to-atom interactions (i.e. collisions and anti-meld push, not bonds)
    timers.atomOnAtom.start();
    impactAtomsOnAtoms(world.atoms, world.atom2atom);
-   pushAtomsOnAtoms(world.atoms, world.atom2atom);
+   // pushAtomsOnAtoms(world.atoms, world.atom2atom);
    timers.atomOnAtom.end();
 
    // Apply atom velocities
@@ -396,18 +391,68 @@ function update() {
    for (let b of world.bonds) b.draw();
    for (let a of world.atoms) a.draw();
 
+   // Draw theoretical ball launched via mouse
+   let cursorRadius = 30;
+   let launchMult = 2;
+   let mouseDelta = {x:mouse.pos.x - mouse.posClick.x, y:mouse.pos.y - mouse.posClick.y};
+   let mouseDist = Math.sqrt(squareMag(mouseDelta));
+   let mouseDir = {x:mouseDelta.x/mouseDist, y:mouseDelta.y/mouseDist};
+   let mouseNorm = {x:-mouseDir.y, y:mouseDir.x};
+   let mouseOffset = {x:mouseNorm.x*cursorRadius, y:mouseNorm.y*cursorRadius};
+   ctx.strokeStyle = 'blue';
+   ctx.beginPath();
+   ctx.moveTo(...toArray(viewTransWorldToDraw({x:mouse.pos.x+mouseOffset.x, y:mouse.pos.y+mouseOffset.y})));
+   ctx.lineTo(...toArray(viewTransWorldToDraw({x:mouse.posClick.x+mouseOffset.x, y:mouse.posClick.y+mouseOffset.y})));
+   ctx.stroke();
+   ctx.beginPath();
+   ctx.moveTo(...toArray(viewTransWorldToDraw({x:mouse.pos.x-mouseOffset.x, y:mouse.pos.y-mouseOffset.y})));
+   ctx.lineTo(...toArray(viewTransWorldToDraw({x:mouse.posClick.x-mouseOffset.x, y:mouse.posClick.y-mouseOffset.y})));
+   ctx.stroke();
+   ctx.beginPath();
+   ctx.arc(...toArray(viewTransWorldToDraw(mouse.pos)), viewScaleWorldToDraw(cursorRadius), 0, Math.PI*2);
+   ctx.stroke();
+   ctx.beginPath();
+   ctx.arc(...toArray(viewTransWorldToDraw(mouse.posClick)), viewScaleWorldToDraw(cursorRadius), 0, Math.PI*2);
+   ctx.stroke();
+
+   let mouseAtomVel = {x:mouseDelta.x*launchMult, y:mouseDelta.y*launchMult};
+   let mouseAtomPos = {x:mouse.posClick.x+mouseAtomVel.x, y:mouse.posClick.y+mouseAtomVel.y};
+   let mouseAtom = new Atom(mouseAtomPos, mouseAtomVel, cursorRadius, 'black');
+   let collisions = impactAtomOnBlocks(mouseAtom, world.blocks);
+   ctx.strokeStyle = 'red';
+   // let drawPoss = [mouse.posClick];
+   let drawPoss = [mouse.posClick];
+   let drawProjs = [mouseAtomPos];
+   // let drawVels = [mouseAtomVel];
+   for (let c of collisions) {
+      drawPoss.push(c.collidePos);
+      drawProjs.push(c.newPos);
+      mouseAtomPos = c.newPos;
+      // drawVels.push({x:mouseAtomPos.x-c.collidePos.x, y:mouseAtomPos.y-c.collidePos.y});
+   }
+   drawPoss.push(mouseAtomPos);
+   for (let d=0; d<drawProjs.length; d++) {
+      ctx.beginPath()
+      ctx.moveTo(...toArray(viewTransWorldToDraw(drawPoss[d])));
+      // ctx.lineTo(...toArray(viewTransWorldToDraw({x:drawPoss[d].x+drawVels[d].x, y:drawPoss[d].y+drawVels[d].y})));
+      ctx.lineTo(...toArray(viewTransWorldToDraw(drawProjs[d])));
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(...toArray(viewTransWorldToDraw(drawPoss[d+1])), viewScaleWorldToDraw(cursorRadius), 0, Math.PI*2);
+      ctx.stroke();
+   }
+
+
    // Draw stats on top of world
    ctx.font = '16px sans-serif'
    ctx.fillStyle = '#000000';
    let updateAvg = timers.update.getAverage();
    ctx.fillText(`FPS: ${(1000/timers.frame.getAverage()).toFixed(1)} - ${(100*updateAvg/timers.frame.getAverage()).toFixed(1)}\%`, 30, 50);
-   ctx.fillText('Energy:' + energy.toFixed(1), 30, 75);
-   // ctx.fillText('E1:' + energy1, 30, 100);
-   // ctx.fillText('E2:' + energy2, 30, 125);
-   ctx.fillText('Mouse: ' + mouse.pos.x.toFixed(1) + ', ' + mouse.pos.y.toFixed(1), 30, 150);
-   ctx.fillText('Frame #: ' + world.frameNumber, 30, 175);
    ctx.fillText(`AtomOnAtom: ${(100*timers.atomOnAtom.getAverage()/updateAvg).toFixed(1)}\%`, 200, 50);
    ctx.fillText(`Draw: ${(100*timers.draw.getAverage()/updateAvg).toFixed(1)}\%`, 400, 50);
+   ctx.fillText('Energy:' + energy.toFixed(1), 30, 75);
+   ctx.fillText('Mouse: ' + mouse.pos.x.toFixed(1) + ', ' + mouse.pos.y.toFixed(1), 30, 125);
+   ctx.fillText('Frame #: ' + world.frameNumber, 30, 150);
 
    timers.draw.end();
    timers.update.end();
@@ -577,29 +622,40 @@ function impactAtomOnBlocks(atom, blocks) {
    let t = 1;
    let lastBlock = null;
    let lastObjectId = null;
-   let hitNum = 2;
+   let hitNum = 3;
+   let collisions = [];
    while (t>0) {
-      let result = {t:Infinity, collidePos:null, wallNorm:null, wallInd:null, velNew:null};
+      let result = {t:t, collidePos:null, wallNorm:null, wallInd:null, newVel:null, newPos:null};
       let newLastBlock = null;
       for (let i=0; i<blocks.length; i++) {
-         if (mouse.pos.x>800 && i==blocks.length-1) continue;
+         if (mouse.pos.x>8900 && i==blocks.length-1) continue;
          let resultTemp;
          if (lastBlock == i) resultTemp = blocks[i].collision(atom, t, lastObjectId);
          else resultTemp = blocks[i].collision(atom, t, null);
 
-         if (resultTemp.t < result.t) {
+         if (resultTemp.t <= result.t) {
             result = resultTemp;
             newLastBlock = i;
          }
       }
+
+      let tOrig = t;
+
       lastBlock = newLastBlock;
       lastObjectId = result.wallInd;
       if (result.collidePos == null) break;
+
       t -= result.t;
       hitNum--;
-      if (hitNum <= 0) t = 0;
+      if (hitNum <= 0) {
+         t = 0;
+         result.newPos = result.collidePos;
+      }
 
-      atom.vel = result.velNew;
-      atom.pos = {x:t*result.velNew.x+result.collidePos.x, y:t*result.velNew.y+result.collidePos.y};
+      atom.vel = result.newVel;
+      atom.pos = result.newPos;
+
+      collisions.push(result);
    }
+   return collisions;
 }

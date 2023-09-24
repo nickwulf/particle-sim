@@ -6,6 +6,7 @@ const WorldNames = Object.freeze({
    Pool:Symbol(),
    Brownian:Symbol(),
    Convection:Symbol(),
+   Strings:Symbol(),
 });
 
 function loadWorld(name, world={}) {
@@ -129,6 +130,40 @@ function loadWorld(name, world={}) {
       world.blocks.push(new Block([[-300,-300], [300,-300], [300,300], [-300,300]], blockParams));
 
       world.gravity = 0.1;
+
+
+   } else if (name == WorldNames.Strings) {
+      let radius = 12;
+      let atomCount = 60;
+      for (let i=-atomCount/2; i<atomCount/2; i++) world.atoms.push(new Atom({x:(i + 0.5)*radius*2 ,y:-250+i*.5}, {x:0,y:0}, radius, 'hsl(200,50%,50%)'));
+      for (let i=-atomCount/2; i<atomCount/2; i++) world.atoms.push(new Atom({x:(i + 0.5)*radius*2 ,y:-350-i*.5}, {x:0,y:0}, radius, 'hsl(240,50%,50%)'));
+      for (let i=-atomCount/2; i<atomCount/2; i++) world.atoms.push(new Atom({x:(i + 0.5)*radius*2 ,y:-450+i*.5}, {x:0,y:0}, radius, 'hsl(280,50%,50%)'));
+      for (let i=0; i<200; i++) {
+         let newAtom = new Atom({x:0,y:0}, {x:0,y:0}, 5, 'green');
+         newAtom.randomizePos({x:-750,y:0}, {x:750,y:480});
+         newAtom.randomizeVel({x:-5,y:-5}, {x:5,y:5});
+         world.atoms.push(newAtom);
+      }
+
+      let bondParams = {maxDist:20};
+      for (let i=0; i<atomCount-1; i++) {
+         world.bonds.push(new Bond(world.atoms[i], world.atoms[i+1], bondParams));
+         world.bonds.push(new Bond(world.atoms[i+atomCount], world.atoms[i+atomCount+1], bondParams));
+         world.bonds.push(new Bond(world.atoms[i+2*atomCount], world.atoms[i+2*atomCount+1], bondParams));
+      }
+
+      let blockParams = {temp:1000};
+      world.blocks.push(new Block([[-800,-500], [800,-500], [800,-490], [-800,-490]], blockParams));
+      world.blocks.push(new Block([[-800,490], [800,490], [800,500], [-800,500]], blockParams));
+      world.blocks.push(new Block([[-800,-500], [-790,-500], [-790,500], [-800,500]], blockParams));
+      world.blocks.push(new Block([[790,-500], [800,-500], [800,500], [790,500]], blockParams));
+      world.blocks.push(new Block([[0,-50], [20,50], [-20,50]], blockParams));
+      world.blocks.push(new Block([[300,50], [320,150], [280,150]], blockParams));
+      world.blocks.push(new Block([[-300,150], [-280,250], [-320,250]], blockParams));
+
+      world.gravity = 0.1;
+
+
    }
 
    // Initialize atom-to-atom stats structure
