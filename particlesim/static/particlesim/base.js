@@ -322,11 +322,22 @@ document.addEventListener('DOMContentLoaded', function() {
    mouse.pos = {x:0, y:0};
    mouse.posClick = {...mouse.pos};
 
-   window.addEventListener('mousemove', function(evt) {
+   function moveEvent(evt) {
       let rect = canvas.getBoundingClientRect();
+      let movePos = {};
+      if (evt instanceof TouchEvent) {
+         movePos = {x:evt.touches[0].clientX, y:evt.touches[0].clientY};
+      } else {
+         movePos = {x:evt.clientX, y:evt.clientY};
+      }
       mouse.pos = {};
-      mouse.pos.x = (evt.clientX - rect.left) / rect.width * canvas.width - canvas.width/2;
-      mouse.pos.y = (evt.clientY - rect.top) / rect.height * canvas.height - canvas.height/2;
+      mouse.pos.x = (movePos.x - rect.left) / rect.width * canvas.width - canvas.width/2;
+      mouse.pos.y = (movePos.y - rect.top) / rect.height * canvas.height - canvas.height/2;
+   }
+   window.addEventListener('mousemove', moveEvent);
+   window.addEventListener('touchmove', function(evt) {
+      let debug = 0;
+      moveEvent(evt);
    });
    canvas.onclick = function() {
       mouse.posClick = {...mouse.pos};
