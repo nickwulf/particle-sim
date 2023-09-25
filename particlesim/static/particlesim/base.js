@@ -335,10 +335,7 @@ document.addEventListener('DOMContentLoaded', function() {
       mouse.pos.y = (movePos.y - rect.top) / rect.height * canvas.height - canvas.height/2;
    }
    window.addEventListener('mousemove', moveEvent);
-   window.addEventListener('touchmove', function(evt) {
-      let debug = 0;
-      moveEvent(evt);
-   });
+   window.addEventListener('touchmove', moveEvent);
    canvas.onclick = function() {
       mouse.posClick = {...mouse.pos};
    };
@@ -403,54 +400,53 @@ function update() {
    for (let a of world.atoms) a.draw();
 
    // Draw theoretical ball launched via mouse
-   let cursorRadius = 30;
-   let launchMult = 2;
-   let mouseDelta = {x:mouse.pos.x - mouse.posClick.x, y:mouse.pos.y - mouse.posClick.y};
-   let mouseDist = Math.sqrt(squareMag(mouseDelta));
-   let mouseDir = {x:mouseDelta.x/mouseDist, y:mouseDelta.y/mouseDist};
-   let mouseNorm = {x:-mouseDir.y, y:mouseDir.x};
-   let mouseOffset = {x:mouseNorm.x*cursorRadius, y:mouseNorm.y*cursorRadius};
-   ctx.strokeStyle = 'blue';
-   ctx.beginPath();
-   ctx.moveTo(...toArray(viewTransWorldToDraw({x:mouse.pos.x+mouseOffset.x, y:mouse.pos.y+mouseOffset.y})));
-   ctx.lineTo(...toArray(viewTransWorldToDraw({x:mouse.posClick.x+mouseOffset.x, y:mouse.posClick.y+mouseOffset.y})));
-   ctx.stroke();
-   ctx.beginPath();
-   ctx.moveTo(...toArray(viewTransWorldToDraw({x:mouse.pos.x-mouseOffset.x, y:mouse.pos.y-mouseOffset.y})));
-   ctx.lineTo(...toArray(viewTransWorldToDraw({x:mouse.posClick.x-mouseOffset.x, y:mouse.posClick.y-mouseOffset.y})));
-   ctx.stroke();
-   ctx.beginPath();
-   ctx.arc(...toArray(viewTransWorldToDraw(mouse.pos)), viewScaleWorldToDraw(cursorRadius), 0, Math.PI*2);
-   ctx.stroke();
-   ctx.beginPath();
-   ctx.arc(...toArray(viewTransWorldToDraw(mouse.posClick)), viewScaleWorldToDraw(cursorRadius), 0, Math.PI*2);
-   ctx.stroke();
-
-   let mouseAtomVel = {x:mouseDelta.x*launchMult, y:mouseDelta.y*launchMult};
-   let mouseAtomPos = {x:mouse.posClick.x+mouseAtomVel.x, y:mouse.posClick.y+mouseAtomVel.y};
-   let mouseAtom = new Atom(mouseAtomPos, mouseAtomVel, cursorRadius, 'black');
-   let collisions = impactAtomOnBlocks(mouseAtom, world.blocks);
-   ctx.strokeStyle = 'red';
-   // let drawPoss = [mouse.posClick];
-   let drawPoss = [mouse.posClick];
-   let drawProjs = [mouseAtomPos];
-   // let drawVels = [mouseAtomVel];
-   for (let c of collisions) {
-      drawPoss.push(c.collidePos);
-      drawProjs.push(c.newPos);
-      mouseAtomPos = c.newPos;
-      // drawVels.push({x:mouseAtomPos.x-c.collidePos.x, y:mouseAtomPos.y-c.collidePos.y});
-   }
-   drawPoss.push(mouseAtomPos);
-   for (let d=0; d<drawProjs.length; d++) {
-      ctx.beginPath()
-      ctx.moveTo(...toArray(viewTransWorldToDraw(drawPoss[d])));
-      // ctx.lineTo(...toArray(viewTransWorldToDraw({x:drawPoss[d].x+drawVels[d].x, y:drawPoss[d].y+drawVels[d].y})));
-      ctx.lineTo(...toArray(viewTransWorldToDraw(drawProjs[d])));
+   if (world.doMouseProj) {
+      let cursorRadius = 30;
+      let launchMult = 4;
+      let mouseDelta = {x:mouse.pos.x - mouse.posClick.x, y:mouse.pos.y - mouse.posClick.y};
+      let mouseDist = Math.sqrt(squareMag(mouseDelta));
+      let mouseDir = {x:mouseDelta.x/mouseDist, y:mouseDelta.y/mouseDist};
+      let mouseNorm = {x:-mouseDir.y, y:mouseDir.x};
+      let mouseOffset = {x:mouseNorm.x*cursorRadius, y:mouseNorm.y*cursorRadius};
+      ctx.strokeStyle = 'blue';
+      ctx.beginPath();
+      ctx.moveTo(...toArray(viewTransWorldToDraw({x:mouse.pos.x+mouseOffset.x, y:mouse.pos.y+mouseOffset.y})));
+      ctx.lineTo(...toArray(viewTransWorldToDraw({x:mouse.posClick.x+mouseOffset.x, y:mouse.posClick.y+mouseOffset.y})));
       ctx.stroke();
       ctx.beginPath();
-      ctx.arc(...toArray(viewTransWorldToDraw(drawPoss[d+1])), viewScaleWorldToDraw(cursorRadius), 0, Math.PI*2);
+      ctx.moveTo(...toArray(viewTransWorldToDraw({x:mouse.pos.x-mouseOffset.x, y:mouse.pos.y-mouseOffset.y})));
+      ctx.lineTo(...toArray(viewTransWorldToDraw({x:mouse.posClick.x-mouseOffset.x, y:mouse.posClick.y-mouseOffset.y})));
       ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(...toArray(viewTransWorldToDraw(mouse.pos)), viewScaleWorldToDraw(cursorRadius), 0, Math.PI*2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(...toArray(viewTransWorldToDraw(mouse.posClick)), viewScaleWorldToDraw(cursorRadius), 0, Math.PI*2);
+      ctx.stroke();
+
+      let mouseAtomVel = {x:mouseDelta.x*launchMult, y:mouseDelta.y*launchMult};
+      let mouseAtomPos = {x:mouse.posClick.x+mouseAtomVel.x, y:mouse.posClick.y+mouseAtomVel.y};
+      let mouseAtom = new Atom(mouseAtomPos, mouseAtomVel, cursorRadius, 'black');
+      let collisions = impactAtomOnBlocks(mouseAtom, world.blocks);
+      let drawPoss = [mouse.posClick];
+      let drawProjs = [mouseAtomPos];
+      for (let c of collisions) {
+         drawPoss.push(c.collidePos);
+         drawProjs.push(c.newPos);
+         mouseAtomPos = c.newPos;
+      }
+      drawPoss.push(mouseAtomPos);
+      let drawCycles = drawProjs.length;
+      for (let d=0; d<drawCycles; d++) {
+         ctx.strokeStyle = `hsl(0, ${100*(drawCycles-d)/drawCycles}%, 50%)`;
+         ctx.beginPath()
+         ctx.moveTo(...toArray(viewTransWorldToDraw(drawPoss[d])));
+         ctx.lineTo(...toArray(viewTransWorldToDraw(drawProjs[d])));
+         ctx.stroke();
+         ctx.beginPath();
+         ctx.arc(...toArray(viewTransWorldToDraw(drawPoss[d+1])), viewScaleWorldToDraw(cursorRadius), 0, Math.PI*2);
+         ctx.stroke();
+      }
    }
 
 
@@ -633,7 +629,7 @@ function impactAtomOnBlocks(atom, blocks) {
    let t = 1;
    let lastBlock = null;
    let lastObjectId = null;
-   let hitNum = 3;
+   let hitNum = 10;
    let collisions = [];
    while (t>0) {
       let result = {t:t, collidePos:null, wallNorm:null, wallInd:null, newVel:null, newPos:null};

@@ -4,6 +4,7 @@ const WorldNames = Object.freeze({
    Initial:Symbol(),
    TempTest:Symbol(),
    Pool:Symbol(),
+   ShapeFun:Symbol(),
    Brownian:Symbol(),
    Convection:Symbol(),
    Strings:Symbol(),
@@ -13,6 +14,39 @@ function loadWorld(name, world={}) {
    clearWorld(world);
 
    Math.seedrandom(0);
+
+   function createButton(func, params) {
+      let buttonArea = document.getElementById('part-sim-button-area');
+      let button = document.createElement('button');
+      let state = {};
+      func(button, state, params);
+      button.addEventListener('click', function(evt) {func(button, state, params);});
+      buttonArea.appendChild(button);
+   }
+
+   function buttonMouseProj(button, state, params) {
+      if (Object.keys(state).length == 0) {
+         state.initialized = true;
+      } else {
+         world.doMouseProj = !world.doMouseProj;
+      }
+      let status = 'Disabled';
+      if (world.doMouseProj) status = 'Enabled'
+      button.innerText = 'Mouse Projection: ' + status;
+   }
+   function buttonGravity(button, state, params) {
+      if (Object.keys(state).length == 0) {
+         state.options = [world.gravity].concat(params.options);
+         state.optionInd = 0;
+      } else {
+         state.optionInd += 1;
+         state.optionInd %= state.options.length;
+      }
+      world.gravity = state.options[state.optionInd];
+      button.innerText = 'Gravity Strength: ' + world.gravity;
+   }
+
+   createButton(buttonMouseProj);
 
    if (name == WorldNames.Initial) {
       for (let i=0; i<100; i++) {
@@ -87,6 +121,35 @@ function loadWorld(name, world={}) {
       world.gravity = 0.0;
 
 
+   } else if (name == WorldNames.ShapeFun) {
+
+      let colors = ['hsl(0,50%,50%)', 'hsl(30,50%,50%)', 'hsl(60,50%,50%)', 'hsl(120,30%,50%)', 'hsl(240,50%,50%)', 'hsl(280,40%,50%)'];
+      let radii = [20, 16, 13, 10, 8, 6];
+      for (let i=0; i<6; i++) {
+         let atomCount = 2000 / radii[i]**2;
+         for (let a=0; a<atomCount; a++) {
+            let newAtom = new Atom({x:0,y:0}, {x:0,y:0}, radii[i], colors[i]);
+            let offset = {x: 550 * (i%3), y: 550 * Math.floor(i/3)};
+            newAtom.randomizePos({x:-750+offset.x, y:-450+offset.y}, {x:-350+offset.x,y:-100+offset.y});
+            let speed = 2;
+            newAtom.randomizeVel({x:-speed,y:-speed}, {x:speed,y:speed});
+            world.atoms.push(newAtom);
+         }
+      }
+
+      let blockParams = {tempCondCoef:0};
+      world.blocks.push(new Block([[-800,-500], [800,-500], [800,-490], [-800,-490]], blockParams));
+      world.blocks.push(new Block([[-800,490], [800,490], [800,500], [-800,500]], blockParams));
+      world.blocks.push(new Block([[-800,-500], [-790,-500], [-790,500], [-800,500]], blockParams));
+      world.blocks.push(new Block([[790,-500], [800,-500], [800,500], [790,500]], blockParams));
+      world.blocks.push(new Block([[-100,-200], [200,0], [200,300], [-100,300]], Object.assign(blockParams,{color:'hsl(0,0%,20%)'})));
+      world.blocks.push(new Block([[-400,-100], [350,-100], [350,-50], [340,-90], [-350,-50], [-300,400]], Object.assign(blockParams,{color:'hsl(0,0%,30%)'})));
+
+      world.gravity = 0.0;
+
+      createButton(buttonGravity, {options:0.01});
+
+
    } else if (name == WorldNames.Brownian) {
       for (let i=0; i<50; i++) {
          let newAtom = new Atom({x:0,y:0}, {x:0,y:0}, 20, 'brown');
@@ -108,6 +171,7 @@ function loadWorld(name, world={}) {
       world.blocks.push(new Block([[790,-500], [800,-500], [800,500], [790,500]], blockParams));
 
       world.gravity = 0.0;
+      createButton(buttonGravity, {options:0.1});
 
 
    } else if (name == WorldNames.Convection) {
@@ -130,6 +194,28 @@ function loadWorld(name, world={}) {
       world.blocks.push(new Block([[-300,-300], [300,-300], [300,300], [-300,300]], blockParams));
 
       world.gravity = 0.1;
+      createButton(buttonGravity, {options:[0, -0.1]});
+      createButton(function (button, state, params) {
+         if (Object.keys(state).length == 0) {
+            state.enabled = true;
+            state.initProps = [];
+            for (let b of world.blocks) state.initProps.push({tempCondCoef:b.tempCondCoef, color:b.color});
+         } else {
+            state.enabled = !state.enabled;
+         }
+         let status = 'Disabled';
+         for (let b in world.blocks) {
+            if (state.enabled) {
+               status = 'Enabled';
+               world.blocks[b].tempCondCoef = state.initProps[b].tempCondCoef;
+               world.blocks[b].color = state.initProps[b].color;
+            } else {
+               world.blocks[b].tempCondCoef = 0;
+               world.blocks[b].color = 'gray';
+            }
+         }
+         button.innerText = 'Thermal Conduction: ' + status;
+      });
 
 
    } else if (name == WorldNames.Strings) {
@@ -162,6 +248,7 @@ function loadWorld(name, world={}) {
       world.blocks.push(new Block([[-300,150], [-280,250], [-320,250]], blockParams));
 
       world.gravity = 0.1;
+      createButton(buttonGravity, {options:0});
 
 
    }
@@ -189,6 +276,13 @@ function clearWorld(world) {
    world.frameNumber = 0;
    world.view = {offset:{x:0, y:0}, zoom: 1}; // Offset is in world coordinates
    world.gravity = 0.02;
+   world.doMouseProj = true;
    if ('frameRequest' in world) cancelAnimationFrame(world.frameRequest);
+
+   let buttonArea = document.getElementById('part-sim-button-area');
+   if (buttonArea != null) buttonArea.remove();
+   buttonArea = document.createElement('div');
+   buttonArea.id = 'part-sim-button-area';
+   document.getElementById('part-sim-wrapper').appendChild(buttonArea);
 
 }
