@@ -162,9 +162,9 @@ class Block {
          let uNum = (qMinusP.x * r.y) - (qMinusP.y * r.x);
          let rCrossS = (r.x * s.y) - (r.y * s.x);
          if (rCrossS != 0) { // This fails when r is parallel to s
-            let t = 1.0 * tNum / rCrossS; // t is relative distance along r
-            let u = 1.0 * uNum / rCrossS; // u is relative distance along s
-            if ((t>=0 && t<=1) && (u>=0 && u<=1) && t<result.t) {
+            let t = tNum / rCrossS; // t is relative distance along r
+            let u = uNum / rCrossS; // u is relative distance along s
+            if ((t>=0 && t<=progress) && (u>=0 && u<=1) && t<result.t) {
                let collidePos = {x:t*r.x+p.x, y:t*r.y+p.y};
                result = {t:t, collidePos:collidePos, wallNorm:this.norms[i], wallInd:i, newVel:null, newPos:null};
             }
@@ -204,7 +204,7 @@ class Block {
          if (ans[0] != null) {
             for (let j=0; j<2; j++) {
                let t = ans[j];
-               if (t>=0 && t<=1 && t<result.t) {
+               if (t>=0 && t<=progress && t<result.t) {
                   let collidePos = {x:t*r.x+p.x, y:t*r.y+p.y};
                   let norm = {x:(collidePos.x-this.pts[i].x)/atom.radius, y:(collidePos.y-this.pts[i].y)/atom.radius};
                   let normLeft = this.norms[this.norms.length-1];
@@ -339,6 +339,12 @@ document.addEventListener('DOMContentLoaded', function() {
    canvas.onclick = function() {
       mouse.posClick = {...mouse.pos};
    };
+   canvas.addEventListener('touchmove', function(evt) {
+      moveEvent(evt);
+      evt.preventDefault();
+      evt.stopPropagation();
+      return false;
+   });
 
 });
 
@@ -403,6 +409,7 @@ function update() {
    if (world.doMouseProj) {
       let cursorRadius = 30;
       let launchMult = 4;
+      let tSteps = 100;
       let mouseDelta = {x:mouse.pos.x - mouse.posClick.x, y:mouse.pos.y - mouse.posClick.y};
       let mouseDist = Math.sqrt(squareMag(mouseDelta));
       let mouseDir = {x:mouseDelta.x/mouseDist, y:mouseDelta.y/mouseDist};
@@ -424,10 +431,10 @@ function update() {
       ctx.arc(...toArray(viewTransWorldToDraw(mouse.posClick)), viewScaleWorldToDraw(cursorRadius), 0, Math.PI*2);
       ctx.stroke();
 
-      let mouseAtomVel = {x:mouseDelta.x*launchMult, y:mouseDelta.y*launchMult};
-      let mouseAtomPos = {x:mouse.posClick.x+mouseAtomVel.x, y:mouse.posClick.y+mouseAtomVel.y};
+      let mouseAtomVel = {x:mouseDelta.x*launchMult/tSteps, y:mouseDelta.y*launchMult/tSteps};
+      let mouseAtomPos = {x:mouse.posClick.x+mouseAtomVel.x*tSteps, y:mouse.posClick.y+mouseAtomVel.y*tSteps};
       let mouseAtom = new Atom(mouseAtomPos, mouseAtomVel, cursorRadius, 'black');
-      let collisions = impactAtomOnBlocks(mouseAtom, world.blocks);
+      let collisions = impactAtomOnBlocks(mouseAtom, world.blocks, tSteps);
       let drawPoss = [mouse.posClick];
       let drawProjs = [mouseAtomPos];
       for (let c of collisions) {
@@ -625,20 +632,18 @@ function pushAtomsOnAtoms(atoms, atom2atom) {
    }
 }
 
-function impactAtomOnBlocks(atom, blocks) {
-   let t = 1;
+function impactAtomOnBlocks(atom, blocks, tSteps=1) {
    let lastBlock = null;
    let lastObjectId = null;
    let hitNum = 10;
    let collisions = [];
-   while (t>0) {
-      let result = {t:t, collidePos:null, wallNorm:null, wallInd:null, newVel:null, newPos:null};
+   while (tSteps>0) {
+      let result = {t:tSteps, collidePos:null, wallNorm:null, wallInd:null, newVel:null, newPos:null};
       let newLastBlock = null;
       for (let i=0; i<blocks.length; i++) {
-         if (mouse.pos.x>8900 && i==blocks.length-1) continue;
          let resultTemp;
-         if (lastBlock == i) resultTemp = blocks[i].collision(atom, t, lastObjectId);
-         else resultTemp = blocks[i].collision(atom, t, null);
+         if (lastBlock == i) resultTemp = blocks[i].collision(atom, tSteps, lastObjectId);
+         else resultTemp = blocks[i].collision(atom, tSteps, null);
 
          if (resultTemp.t <= result.t) {
             result = resultTemp;
@@ -646,16 +651,14 @@ function impactAtomOnBlocks(atom, blocks) {
          }
       }
 
-      let tOrig = t;
-
       lastBlock = newLastBlock;
       lastObjectId = result.wallInd;
       if (result.collidePos == null) break;
 
-      t -= result.t;
+      tSteps -= result.t;
       hitNum--;
       if (hitNum <= 0) {
-         t = 0;
+         tSteps = 0;
          result.newPos = result.collidePos;
       }
 

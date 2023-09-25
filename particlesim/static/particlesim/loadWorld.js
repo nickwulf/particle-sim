@@ -32,7 +32,7 @@ function loadWorld(name, world={}) {
       }
       let status = 'Disabled';
       if (world.doMouseProj) status = 'Enabled'
-      button.innerText = 'Mouse Projection: ' + status;
+      button.innerText = 'Mouse Trajectory: ' + status;
    }
    function buttonGravity(button, state, params) {
       if (Object.keys(state).length == 0) {
@@ -160,7 +160,6 @@ function loadWorld(name, world={}) {
       for (let i=0; i<1000; i++) {
          let newAtom = new Atom({x:0,y:0}, {x:0,y:0}, 4, 'orange');
          newAtom.randomizePos({x:20,y:-480}, {x:750,y:480});
-         // newAtom.randomizeVel({x:-40,y:-40}, {x:40,y:40});
          world.atoms.push(newAtom);
       }
 
@@ -182,7 +181,7 @@ function loadWorld(name, world={}) {
          world.atoms.push(newAtom);
       }
 
-      let blockParams = {temp:0, color:'blue'};
+      let blockParams = {temp:2000, color:'blue'};
       world.blocks.push(new Block([[-800,-500], [0,-500], [0,-490], [-800,-490]], blockParams));
       world.blocks.push(new Block([[-800,-500], [-790,-500], [-790,500], [-800,500]], blockParams));
       world.blocks.push(new Block([[-800,490], [0,490], [0,500], [-800,500]], blockParams));
