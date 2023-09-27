@@ -308,7 +308,6 @@ var viewDesiredDims = {width:1600, height:1000};
 var world = {};
 
 document.addEventListener('DOMContentLoaded', function() {
-
    canvas = document.getElementById('part-sim-canvas');
    canvas.width = viewDesiredDims.width;
    canvas.height = viewDesiredDims.height;

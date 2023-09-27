@@ -10,7 +10,10 @@ const WorldNames = Object.freeze({
    Strings:Symbol(),
 });
 
-function loadWorld(name, world={}) {
+function loadWorld(worldId, world={}) {
+   let worldName = null;
+   for (let key in WorldNames) if (worldId == WorldNames[key]) worldName = key;
+
    clearWorld(world);
 
    Math.seedrandom(0);
@@ -27,9 +30,15 @@ function loadWorld(name, world={}) {
    function buttonMouseProj(button, state, params) {
       if (Object.keys(state).length == 0) {
          state.initialized = true;
+         if (!('doMouseProj' in localStorage)) localStorage.setItem('doMouseProj', JSON.stringify({}));
+         let lsDict = JSON.parse(localStorage.getItem('doMouseProj'));
+         if (worldName in lsDict) world.doMouseProj = lsDict[worldName];
       } else {
          world.doMouseProj = !world.doMouseProj;
       }
+      let lsDict = JSON.parse(localStorage.getItem('doMouseProj'));
+      lsDict[worldName] = world.doMouseProj;
+      localStorage.setItem('doMouseProj', JSON.stringify(lsDict));
       let status = 'Disabled';
       if (world.doMouseProj) status = 'Enabled'
       button.innerText = 'Mouse Trajectory: ' + status;
@@ -48,7 +57,7 @@ function loadWorld(name, world={}) {
 
    createButton(buttonMouseProj);
 
-   if (name == WorldNames.Initial) {
+   if (worldId == WorldNames.Initial) {
       for (let i=0; i<100; i++) {
          let newAtom = new Atom({x:i*10-460,y:80}, {x:0,y:0}, 20, '#FF0000');
          newAtom.randomizePos({x:-450,y:-290}, {x:-30,y:290});
@@ -70,7 +79,7 @@ function loadWorld(name, world={}) {
       world.blocks.push(new Block([[-5,-500], [5,-500], [5,500], [-5,500]], 0, '#000000'));
 
 
-   } else if (name == WorldNames.TempTest) {
+   } else if (worldId == WorldNames.TempTest) {
       for (let i=0; i<50; i++) {
          let newAtom = new Atom({x:0,y:0}, {x:0,y:0}, 15, '#FF0000');
          newAtom.randomizePos({x:-750,y:-480}, {x:750,y:-400});
@@ -94,7 +103,7 @@ function loadWorld(name, world={}) {
       world.gravity = 0.0;
 
 
-   } else if (name == WorldNames.Pool) {
+   } else if (worldId == WorldNames.Pool) {
       let radius = 25;
       let spacer = radius * 1.02;
       let posCenter = {x:500, y:0};
@@ -121,7 +130,7 @@ function loadWorld(name, world={}) {
       world.gravity = 0.0;
 
 
-   } else if (name == WorldNames.ShapeFun) {
+   } else if (worldId == WorldNames.ShapeFun) {
 
       let colors = ['hsl(0,50%,50%)', 'hsl(30,50%,50%)', 'hsl(60,50%,50%)', 'hsl(120,30%,50%)', 'hsl(240,50%,50%)', 'hsl(280,40%,50%)'];
       let radii = [20, 16, 13, 10, 8, 6];
@@ -150,7 +159,7 @@ function loadWorld(name, world={}) {
       createButton(buttonGravity, {options:0.01});
 
 
-   } else if (name == WorldNames.Brownian) {
+   } else if (worldId == WorldNames.Brownian) {
       for (let i=0; i<50; i++) {
          let newAtom = new Atom({x:0,y:0}, {x:0,y:0}, 20, 'brown');
          newAtom.randomizePos({x:-750,y:-480}, {x:-20,y:480});
@@ -173,7 +182,7 @@ function loadWorld(name, world={}) {
       createButton(buttonGravity, {options:0.1});
 
 
-   } else if (name == WorldNames.Convection) {
+   } else if (worldId == WorldNames.Convection) {
       for (let i=0; i<500; i++) {
          let newAtom = new Atom({x:0,y:0}, {x:0,y:0}, 12, 'purple');
          newAtom.randomizePos({x:-750,y:-480}, {x:750,y:480});
@@ -217,7 +226,7 @@ function loadWorld(name, world={}) {
       });
 
 
-   } else if (name == WorldNames.Strings) {
+   } else if (worldId == WorldNames.Strings) {
       let radius = 12;
       let atomCount = 60;
       for (let i=-atomCount/2; i<atomCount/2; i++) world.atoms.push(new Atom({x:(i + 0.5)*radius*2 ,y:-250+i*.5}, {x:0,y:0}, radius, 'hsl(200,50%,50%)'));
