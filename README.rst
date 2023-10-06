@@ -4,7 +4,7 @@ Particle-Sim
 
 Particle-Sim is a particle simulator for experimenting with concepts that may eventually be integrated into a game.
 
-Quick start
+Quick Start
 -----------
 The quickest way to get started is to download the GitHub project onto your machine, unzip, and go to the top-level "particlesim" directory. You can then launch "demo.html" using your favorite browser (tested on Chrome, Firefox, and Edge). The page it brings up will let you load any of the demo worlds and start playing.
 
